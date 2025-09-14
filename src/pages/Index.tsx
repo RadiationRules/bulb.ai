@@ -1,24 +1,56 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/Navigation";
 import { BulbIcon } from "@/components/BulbIcon";
 import { FeatureCard } from "@/components/FeatureCard";
-import { Code, Lightbulb, Hammer, Zap, Brain, Rocket } from "lucide-react";
-import { useEffect } from "react";
+import { ChatInterface } from "@/components/ChatInterface";
+import { AuthModal } from "@/components/AuthModal";
+import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle, Play } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
 import heroImage from "@/assets/hero-bulbai.jpg";
 
 const Index = () => {
-  // Add Chatbase widget
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.innerHTML = `
-      (function(){if(!window.chatbase||window.chatbase("getState")!=="initialized"){window.chatbase=(...arguments)=>{if(!window.chatbase.q){window.chatbase.q=[]}window.chatbase.q.push(arguments)};window.chatbase=new Proxy(window.chatbase,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const script=document.createElement("script");script.src="https://www.chatbase.co/embed.min.js";script.id="W5ZOQa_6wOPIOFFfMXkIY";script.domain="www.chatbase.co";document.body.appendChild(script)};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load",onLoad)}})();
-    `;
-    document.head.appendChild(script);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [isChatFullscreen, setIsChatFullscreen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
-    return () => {
-      document.head.removeChild(script);
-    };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
   }, []);
+
+  const handleGetStarted = () => {
+    if (user) {
+      setShowChat(true);
+      setIsChatFullscreen(true);
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+  const handleWatchDemo = () => {
+    // For demo, just show the chat interface
+    setShowChat(true);
+    setIsChatFullscreen(true);
+  };
+
+  const handleChatClose = () => {
+    setShowChat(false);
+    setIsChatFullscreen(false);
+  };
+
+  const handleToggleFullscreen = () => {
+    if (!showChat) {
+      setShowChat(true);
+      setIsChatFullscreen(true);
+    } else {
+      setIsChatFullscreen(!isChatFullscreen);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,6 +87,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button 
                   size="lg" 
+                  onClick={handleGetStarted}
                   className="tech-gradient hover:opacity-90 transition-opacity text-lg px-8 py-6"
                 >
                   <Zap className="mr-2 h-5 w-5" />
@@ -63,9 +96,11 @@ const Index = () => {
                 <Button 
                   variant="outline" 
                   size="lg"
+                  onClick={handleWatchDemo}
                   className="border-tech-blue text-tech-blue hover:bg-tech-blue/10 text-lg px-8 py-6"
                 >
-                  Watch Demo
+                  <Play className="mr-2 h-4 w-4" />
+                  Try BulbAI Now
                 </Button>
               </div>
             </div>
@@ -142,8 +177,8 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 relative">
+      {/* Chat Section */}
+      <section id="chat-section" className="py-20 relative">
         <div className="absolute inset-0 bg-gradient-to-r from-tech-blue/10 via-tech-purple/10 to-bulb-glow/10" />
         <div className="container mx-auto px-4 text-center relative z-10">
           <BulbIcon className="w-20 h-20 mx-auto mb-8" animated />
@@ -151,14 +186,18 @@ const Index = () => {
             Ready to Illuminate Your Ideas?
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of creators who are already using BulbAI to transform their creative process
+            {user 
+              ? "Welcome back! Start chatting with BulbAI to get intelligent assistance."
+              : "Join thousands of creators who are already using BulbAI to transform their creative process"
+            }
           </p>
           <Button 
             size="lg" 
+            onClick={handleGetStarted}
             className="tech-gradient hover:opacity-90 transition-opacity text-lg px-12 py-6"
           >
-            <Lightbulb className="mr-2 h-5 w-5" />
-            Get Started Free
+            <MessageCircle className="mr-2 h-5 w-5" />
+            {user ? "Start Chatting" : "Get Started Free"}
           </Button>
         </div>
       </section>
@@ -179,6 +218,28 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
+
+      {/* Chat Interface */}
+      {showChat && (
+        <ChatInterface
+          isFullscreen={isChatFullscreen}
+          onToggleFullscreen={handleToggleFullscreen}
+          onClose={handleChatClose}
+        />
+      )}
+
+      {/* Chat Button (when not in fullscreen) */}
+      {!showChat && (
+        <Button
+          onClick={handleToggleFullscreen}
+          className="fixed bottom-6 right-6 z-50 rounded-full w-16 h-16 tech-gradient shadow-2xl hover:scale-110 transition-transform"
+        >
+          <MessageCircle className="h-6 w-6" />
+        </Button>
+      )}
     </div>
   );
 };
