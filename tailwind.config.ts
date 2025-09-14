@@ -47,6 +47,15 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // BulbAI Custom Colors
+        bulb: {
+          glow: "hsl(var(--bulb-glow))",
+          bright: "hsl(var(--bulb-bright))",
+        },
+        tech: {
+          blue: "hsl(var(--tech-blue))",
+          purple: "hsl(var(--tech-purple))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
