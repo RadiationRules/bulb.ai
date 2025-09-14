@@ -5,9 +5,11 @@ import { BulbIcon } from "@/components/BulbIcon";
 import { FeatureCard } from "@/components/FeatureCard";
 import { ChatInterface } from "@/components/ChatInterface";
 import { AuthModal } from "@/components/AuthModal";
-import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle, Play } from "lucide-react";
+import { PricingSection } from "@/components/PricingSection";
+import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle, Play, AlertCircle } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import heroImage from "@/assets/hero-bulbai.jpg";
 
 const Index = () => {
@@ -52,8 +54,23 @@ const Index = () => {
     }
   };
 
+  const handleUpgrade = () => {
+    // Show alert about needing Supabase for premium features
+    alert("To enable premium subscriptions, you'll need to connect to Supabase first. This allows secure payment processing and subscription management.");
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Supabase Integration Notice */}
+      <div className="fixed top-20 left-4 right-4 z-40 max-w-md mx-auto">
+        <Alert className="border-bulb-glow/50 bg-card/95 backdrop-blur-sm">
+          <AlertCircle className="h-4 w-4 text-bulb-glow" />
+          <AlertDescription className="text-sm">
+            <strong>Premium Features Ready!</strong> Connect to Supabase to enable $4.99/month subscriptions with unlimited AI chat.
+          </AlertDescription>
+        </Alert>
+      </div>
+
       <Navigation />
       
       {/* Hero Section */}
@@ -176,6 +193,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Pricing Section */}
+      <PricingSection onUpgrade={handleUpgrade} />
 
       {/* Chat Section */}
       <section id="chat-section" className="py-20 relative">
