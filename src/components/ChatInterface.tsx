@@ -63,12 +63,13 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             width="100%"
             style={{ 
               height: "100%", 
-              minHeight: "700px", 
+              minHeight: "calc(100vh - 80px)", 
               border: "none",
               background: "transparent"
             }}
-            className="w-full h-full rounded-lg"
+            className="w-full h-full"
             title="BulbAI Assistant"
+            allow="microphone; camera"
           />
         </div>
       </div>

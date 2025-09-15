@@ -56,9 +56,15 @@ const Index = () => {
 
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Animated Grid Background */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background/95 to-background/90" />
+        <div className="grid-background" />
+      </div>
 
-      <Navigation />
+      <div className="relative z-10">
+        <Navigation />
       
       {/* Hero Section */}
       <section className="relative pt-24 pb-16 overflow-hidden">
@@ -92,7 +98,7 @@ const Index = () => {
                 <Button 
                   size="lg" 
                   onClick={handleGetStarted}
-                  className="tech-gradient hover:opacity-90 transition-opacity text-lg px-8 py-6"
+                  className="tech-gradient hover:opacity-90 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 shadow-lg hover:shadow-xl"
                 >
                   <Zap className="mr-2 h-5 w-5" />
                   Start Creating Now
@@ -101,7 +107,7 @@ const Index = () => {
                   variant="outline" 
                   size="lg"
                   onClick={handleWatchDemo}
-                  className="border-tech-blue text-tech-blue hover:bg-tech-blue/10 text-lg px-8 py-6"
+                  className="border-tech-blue text-tech-blue hover:bg-tech-blue/10 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 backdrop-blur-sm"
                 >
                   <Play className="mr-2 h-4 w-4" />
                   Try BulbAI Now
@@ -196,14 +202,24 @@ const Index = () => {
               : "Join thousands of creators who are already using BulbAI to transform their creative process"
             }
           </p>
-          <Button 
-            size="lg" 
-            onClick={handleGetStarted}
-            className="tech-gradient hover:opacity-90 transition-opacity text-lg px-12 py-6"
-          >
-            <MessageCircle className="mr-2 h-5 w-5" />
-            {user ? "Start Chatting" : "Get Started Free"}
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              size="lg" 
+              onClick={handleGetStarted}
+              className="tech-gradient hover:opacity-90 transition-all duration-300 hover:scale-105 text-lg px-12 py-6 shadow-lg hover:shadow-xl"
+            >
+              <MessageCircle className="mr-2 h-5 w-5" />
+              {user ? "Start Chatting" : "Get Started Free"}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="lg"
+              className="border-bulb-glow text-bulb-glow hover:bg-bulb-glow/10 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 backdrop-blur-sm"
+            >
+              <Brain className="mr-2 h-5 w-5" />
+              View Capabilities
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -223,6 +239,7 @@ const Index = () => {
           </div>
         </div>
       </footer>
+      </div>
 
       {/* Auth Modal */}
       <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
@@ -236,15 +253,6 @@ const Index = () => {
         />
       )}
 
-      {/* Chat Button (when not in fullscreen) */}
-      {!showChat && (
-        <Button
-          onClick={handleToggleFullscreen}
-          className="fixed bottom-6 right-6 z-50 rounded-full w-16 h-16 tech-gradient shadow-2xl hover:scale-110 transition-transform"
-        >
-          <MessageCircle className="h-6 w-6" />
-        </Button>
-      )}
     </div>
   );
 };

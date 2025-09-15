@@ -113,6 +113,35 @@
     background: var(--hero-gradient);
   }
 
+  /* Animated Grid Background */
+  .grid-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      linear-gradient(rgba(99, 102, 241, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: grid-move 20s linear infinite;
+    opacity: 0.6;
+  }
+
+  .grid-background::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      linear-gradient(rgba(168, 85, 247, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(168, 85, 247, 0.05) 1px, transparent 1px);
+    background-size: 100px 100px;
+    animation: grid-move-reverse 30s linear infinite;
+  }
+
   /* BulbAI Custom Animations */
   .bulb-glow {
     animation: bulb-pulse 3s ease-in-out infinite;
@@ -129,6 +158,24 @@
   .card-hover:hover {
     transform: translateY(-4px);
     box-shadow: var(--tech-shadow);
+  }
+}
+
+@keyframes grid-move {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(50px, 50px);
+  }
+}
+
+@keyframes grid-move-reverse {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-100px, -100px);
   }
 }
 

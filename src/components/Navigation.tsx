@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { BulbIcon } from "./BulbIcon";
 import { AuthModal } from "./AuthModal";
+import { SettingsModal } from "./SettingsModal";
 import { auth, logout } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle } from "lucide-react";
 
 export const Navigation = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -35,59 +38,152 @@ export const Navigation = () => {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <BulbIcon className="w-8 h-8" animated />
-          <span className="text-2xl font-bold bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
-            BulbAI
-          </span>
-        </div>
-        
-        <div className="hidden md:flex items-center space-x-8">
-          <a href="#features" className="text-foreground hover:text-bulb-glow transition-colors">Features</a>
-          <a href="#about" className="text-foreground hover:text-bulb-glow transition-colors">About</a>
-          <a href="#contact" className="text-foreground hover:text-bulb-glow transition-colors">Contact</a>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {user ? (
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <UserIcon className="h-4 w-4 text-bulb-glow" />
-                <span className="text-sm text-muted-foreground">{user.email}</span>
+    <nav className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-lg">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <BulbIcon className="w-8 h-8" animated />
+            <span className="text-2xl font-bold bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
+              BulbAI
+            </span>
+          </div>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-6">
+            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
+              <Brain className="h-4 w-4" />
+              <span>Features</span>
+            </a>
+            <a href="#chat-section" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
+              <MessageCircle className="h-4 w-4" />
+              <span>AI Chat</span>
+            </a>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSettings(true)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Settings className="h-4 w-4 mr-1" />
+              Settings
+            </Button>
+          </div>
+          
+          {/* Desktop Auth Section */}
+          <div className="hidden md:flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <UserIcon className="h-4 w-4 text-bulb-glow" />
+                  <span className="text-sm text-muted-foreground">{user.email}</span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleLogout}
+                  className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleLogout}
-                className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
-              </Button>
-            </div>
-          ) : (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAuthModal(true)}
-                className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
-              >
-                Sign In
-              </Button>
-              <Button 
-                onClick={handleGetStarted}
-                className="tech-gradient hover:opacity-90 transition-opacity"
-              >
-                Get Started
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowAuthModal(true)}
+                  className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  onClick={handleGetStarted}
+                  className="tech-gradient hover:opacity-90 transition-opacity"
+                >
+                  Get Started
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsOpen(!isOpen)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
+
+        {/* Mobile Menu */}
+        {isOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-border/50">
+            <div className="px-2 pt-4 pb-3 space-y-2">
+              <a href="#features" className="flex items-center space-x-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/50">
+                <Brain className="h-4 w-4" />
+                <span>Features</span>
+              </a>
+              <a href="#chat-section" className="flex items-center space-x-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/50">
+                <MessageCircle className="h-4 w-4" />
+                <span>AI Chat</span>
+              </a>
+              <Button
+                variant="ghost"
+                size="sm" 
+                onClick={() => setShowSettings(true)}
+                className="w-full justify-start text-muted-foreground hover:text-foreground px-3 py-2"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+              
+              {/* Mobile Auth Section */}
+              <div className="pt-2 border-t border-border/50 mt-2">
+                {user ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 px-3 py-2">
+                      <UserIcon className="h-4 w-4 text-bulb-glow" />
+                      <span className="text-sm text-muted-foreground truncate">{user.email}</span>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleLogout}
+                      className="w-full justify-start border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowAuthModal(true)}
+                      className="w-full border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                    >
+                      Sign In
+                    </Button>
+                    <Button 
+                      onClick={handleGetStarted}
+                      className="w-full tech-gradient hover:opacity-90 transition-opacity"
+                    >
+                      Get Started
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
+      <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
     </nav>
   );
 };
