@@ -56,13 +56,19 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
           </div>
         </div>
 
-        {/* Chat Area - Fullscreen Chatbase Integration */}
-        <div className="flex-1 relative">
+        {/* Chat Area - BulbAI Integration */}
+        <div className="flex-1 relative bg-background">
           <iframe
             src="https://www.chatbase.co/chatbot-iframe/W5ZOQa_6wOPIOFFfMXkIY"
             width="100%"
-            style={{ height: "100%", minHeight: "700px", border: "none" }}
-            className="w-full h-full"
+            style={{ 
+              height: "100%", 
+              minHeight: "700px", 
+              border: "none",
+              background: "transparent"
+            }}
+            className="w-full h-full rounded-lg"
+            title="BulbAI Assistant"
           />
         </div>
       </div>
