@@ -72,21 +72,21 @@ const Index = () => {
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col lg:flex-row items-center gap-12">
             <div className="flex-1 text-center lg:text-left">
-              <div className="flex items-center justify-center lg:justify-start mb-6">
-                <BulbIcon className="w-16 h-16 mr-4" animated />
-                <h1 className="text-5xl lg:text-7xl font-bold">
+              <div className="flex items-center justify-center lg:justify-start mb-6 opacity-0 animate-fade-in-left">
+                <BulbIcon className="w-16 h-16 mr-4 animate-scale-in animation-delay-200" animated />
+                <h1 className="text-5xl lg:text-7xl font-bold animate-fade-in-right animation-delay-400">
                   <span className="bg-gradient-to-r from-tech-blue via-tech-purple to-bulb-glow bg-clip-text text-transparent">
                     BulbAI
                   </span>
                 </h1>
               </div>
               
-              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-foreground leading-tight">
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-foreground leading-tight opacity-0 animate-fade-in-up animation-delay-600">
                 Illuminate Your Ideas with
                 <span className="text-bulb-glow"> AI-Powered Innovation</span>
               </h2>
               
-              <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl">
+              <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl opacity-0 animate-fade-in-up animation-delay-800">
                 Transform your creative process with BulbAI - the intelligent platform that assists you in 
                 <span className="text-tech-blue font-semibold"> Building</span>, 
                 <span className="text-tech-purple font-semibold"> Brainstorming</span>, and 
@@ -94,32 +94,23 @@ const Index = () => {
                 Light up your potential today.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start opacity-0 animate-fade-in-up animation-delay-1000" style={{animationDelay: '1s'}}>
                 <Button 
                   size="lg" 
                   onClick={handleGetStarted}
-                  className="tech-gradient hover:opacity-90 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 shadow-lg hover:shadow-xl"
+                  className="tech-gradient button-hover-glow text-lg px-8 py-6 shadow-lg"
                 >
                   <Zap className="mr-2 h-5 w-5" />
                   Start Creating Now
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg"
-                  onClick={handleWatchDemo}
-                  className="border-tech-blue text-tech-blue hover:bg-tech-blue/10 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 backdrop-blur-sm"
-                >
-                  <Play className="mr-2 h-4 w-4" />
-                  Try BulbAI Now
-                </Button>
               </div>
             </div>
             
-            <div className="flex-1 relative">
+            <div className="flex-1 relative opacity-0 animate-fade-in-right animation-delay-800">
               <img 
                 src={heroImage}
                 alt="BulbAI Hero - AI Innovation Visualization"
-                className="rounded-2xl shadow-2xl w-full max-w-2xl mx-auto"
+                className="rounded-2xl shadow-2xl w-full max-w-2xl mx-auto hover:scale-105 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent rounded-2xl" />
             </div>
