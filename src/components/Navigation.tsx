@@ -3,13 +3,19 @@ import { Button } from "@/components/ui/button";
 import { BulbIcon } from "./BulbIcon";
 import { AuthModal } from "./AuthModal";
 import { SettingsModal } from "./SettingsModal";
+import { ProfileModal } from "./ProfileModal";
+import { WorkspaceSettings } from "./WorkspaceSettings";
+import { ApiConfigModal } from "./ApiConfigModal";
 import { auth, logout } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle, Folder, Key } from "lucide-react";
 
 export const Navigation = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showWorkspace, setShowWorkspace] = useState(false);
+  const [showApiConfig, setShowApiConfig] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -70,21 +76,54 @@ export const Navigation = () => {
           </div>
           
           {/* Desktop Auth Section */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <UserIcon className="h-4 w-4 text-bulb-glow" />
-                  <span className="text-sm text-muted-foreground">{user.email}</span>
-                </div>
-                <Button 
-                  variant="outline" 
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground hidden lg:inline">{user.email}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowProfile(true)}
+                  className="hover:bg-tech-blue/20"
+                  title="Profile"
+                >
+                  <UserIcon className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowWorkspace(true)}
+                  className="hover:bg-tech-purple/20"
+                  title="Workspace"
+                >
+                  <Folder className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowApiConfig(true)}
+                  className="hover:bg-bulb-glow/20"
+                  title="API Config"
+                >
+                  <Key className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSettings(true)}
+                  className="hover:bg-tech-blue/20"
+                  title="Settings"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={handleLogout}
-                  className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                  className="hover:bg-destructive/20 text-destructive"
+                  title="Logout"
                 >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  <LogOut className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
@@ -145,10 +184,33 @@ export const Navigation = () => {
               <div className="pt-2 border-t border-border/50 mt-2">
                 {user ? (
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2 px-3 py-2">
-                      <UserIcon className="h-4 w-4 text-bulb-glow" />
-                      <span className="text-sm text-muted-foreground truncate">{user.email}</span>
+                    <div className="text-sm text-muted-foreground mb-4 px-3">
+                      Signed in as {user.email}
                     </div>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowProfile(true)}
+                    >
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowWorkspace(true)}
+                    >
+                      <Folder className="h-4 w-4 mr-2" />
+                      Workspace
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => setShowApiConfig(true)}
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      API Config
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -184,6 +246,9 @@ export const Navigation = () => {
       
       <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
       <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
+      <ProfileModal open={showProfile} onOpenChange={setShowProfile} />
+      <WorkspaceSettings open={showWorkspace} onOpenChange={setShowWorkspace} />
+      <ApiConfigModal open={showApiConfig} onOpenChange={setShowApiConfig} />
     </nav>
   );
 };
