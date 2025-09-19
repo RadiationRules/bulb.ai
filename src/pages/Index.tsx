@@ -1,41 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/Navigation";
 import { BulbIcon } from "@/components/BulbIcon";
 import { FeatureCard } from "@/components/FeatureCard";
 import { ChatInterface } from "@/components/ChatInterface";
-import { AuthModal } from "@/components/AuthModal";
+import { useAuth } from "@/hooks/useAuth";
 
-import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle, Play, AlertCircle } from "lucide-react";
-import { auth } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle } from "lucide-react";
 import heroImage from "@/assets/hero-bulbai.jpg";
 
 const Index = () => {
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [showChat, setShowChat] = useState(false);
   const [isChatFullscreen, setIsChatFullscreen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleGetStarted = () => {
     if (user) {
-      setShowChat(true);
-      setIsChatFullscreen(true);
+      navigate('/dashboard');
     } else {
-      setShowAuthModal(true);
+      navigate('/auth');
     }
   };
 
   const handleWatchDemo = () => {
-    // For demo, just show the chat interface
     setShowChat(true);
     setIsChatFullscreen(true);
   };
@@ -53,7 +42,6 @@ const Index = () => {
       setIsChatFullscreen(!isChatFullscreen);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -82,26 +70,30 @@ const Index = () => {
               </div>
               
               <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-foreground leading-tight opacity-0 animate-fade-in-up animation-delay-600">
-                Illuminate Your Ideas with
-                <span className="text-bulb-glow"> AI-Powered Innovation</span>
+                Your Complete Development Platform
               </h2>
               
               <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl opacity-0 animate-fade-in-up animation-delay-800">
-                Transform your creative process with BulbAI - the intelligent platform that assists you in 
-                <span className="text-tech-blue font-semibold"> Building</span>, 
-                <span className="text-tech-purple font-semibold"> Brainstorming</span>, and 
-                <span className="text-bulb-glow font-semibold"> Coding</span>. 
-                Light up your potential today.
+                Build, collaborate, and deploy projects with AI assistance. Join thousands of developers creating amazing applications.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start opacity-0 animate-fade-in-up animation-delay-1000" style={{animationDelay: '1s'}}>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start opacity-0 animate-fade-in-up animation-delay-1000">
                 <Button 
                   size="lg" 
                   onClick={handleGetStarted}
                   className="tech-gradient button-hover-glow text-lg px-8 py-6 shadow-lg"
                 >
                   <Zap className="mr-2 h-5 w-5" />
-                  Start Creating Now
+                  {user ? "Open Dashboard" : "Get Started Free"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg"
+                  onClick={handleWatchDemo}
+                  className="text-lg px-8 py-6"
+                >
+                  <MessageCircle className="mr-2 h-5 w-5" />
+                  Try AI Assistant
                 </Button>
               </div>
             </div>
@@ -109,10 +101,9 @@ const Index = () => {
             <div className="flex-1 relative opacity-0 animate-fade-in-right animation-delay-800">
               <img 
                 src={heroImage}
-                alt="BulbAI Hero - AI Innovation Visualization"
+                alt="BulbAI Development Platform"
                 className="rounded-2xl shadow-2xl w-full max-w-2xl mx-auto hover:scale-105 transition-transform duration-500"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent rounded-2xl" />
             </div>
           </div>
         </div>
@@ -123,48 +114,44 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-foreground">
-              Three Pillars of 
-              <span className="bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
-                {" "}Innovation
-              </span>
+              Everything You Need to Build
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              BulbAI empowers creators, developers, and innovators with AI-driven assistance across three core domains
+              From idea to deployment - BulbAI provides all the tools for modern development
             </p>
           </div>
           
           <div className="grid md:grid-cols-3 gap-8 mb-16">
             <FeatureCard
-              icon={Hammer}
-              title="Building"
-              description="From architecture to app development, BulbAI provides intelligent guidance for constructing your visions into reality with precision and creativity."
+              icon={Code}
+              title="AI-Powered Workspace"
+              description="Code with intelligent assistance. Get real-time suggestions, debugging help, and architecture guidance from our AI copilot."
             />
             <FeatureCard
               icon={Brain}
-              title="Brainstorming"
-              description="Unlock limitless creativity with AI-powered ideation. Generate, refine, and explore concepts that push the boundaries of innovation."
+              title="Project Management"
+              description="Organize your projects, collaborate with others, and track your progress. Public and private projects supported."
             />
             <FeatureCard
-              icon={Code}
-              title="Coding"
-              description="Accelerate your development with intelligent code assistance. From debugging to architecture, BulbAI is your coding companion."
+              icon={Rocket}
+              title="Instant Deployment"
+              description="Deploy your projects instantly with our integrated hosting. Share your work with the world in just one click."
             />
           </div>
 
-          {/* Additional Features */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex items-center p-6 rounded-xl bg-gradient-to-br from-card to-card/80 border border-border/50">
               <Lightbulb className="h-8 w-8 text-bulb-glow mr-4" />
               <div>
                 <h4 className="font-semibold text-foreground mb-1">Smart Insights</h4>
-                <p className="text-sm text-muted-foreground">AI-powered analysis and recommendations</p>
+                <p className="text-sm text-muted-foreground">AI-powered code analysis and optimization</p>
               </div>
             </div>
             <div className="flex items-center p-6 rounded-xl bg-gradient-to-br from-card to-card/80 border border-border/50">
-              <Rocket className="h-8 w-8 text-tech-blue mr-4" />
+              <Hammer className="h-8 w-8 text-tech-blue mr-4" />
               <div>
-                <h4 className="font-semibold text-foreground mb-1">Rapid Prototyping</h4>
-                <p className="text-sm text-muted-foreground">Quick idea-to-implementation pipeline</p>
+                <h4 className="font-semibold text-foreground mb-1">Full-Stack Support</h4>
+                <p className="text-sm text-muted-foreground">Frontend, backend, and database tools</p>
               </div>
             </div>
             <div className="flex items-center p-6 rounded-xl bg-gradient-to-br from-card to-card/80 border border-border/50">
@@ -178,39 +165,27 @@ const Index = () => {
         </div>
       </section>
 
-
-      {/* Chat Section */}
-      <section id="chat-section" className="py-20 relative">
+      {/* CTA Section */}
+      <section id="cta-section" className="py-20 relative">
         <div className="absolute inset-0 bg-gradient-to-r from-tech-blue/10 via-tech-purple/10 to-bulb-glow/10" />
         <div className="container mx-auto px-4 text-center relative z-10">
           <BulbIcon className="w-20 h-20 mx-auto mb-8" animated />
           <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-foreground">
-            Ready to Illuminate Your Ideas?
+            Ready to Start Building?
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             {user 
-              ? "Welcome back! Start chatting with BulbAI to get intelligent assistance."
-              : "Join thousands of creators who are already using BulbAI to transform their creative process"
+              ? "Welcome back! Continue working on your projects."
+              : "Join thousands of developers building the future with BulbAI"
             }
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={handleGetStarted}
-              className="tech-gradient hover:opacity-90 transition-all duration-300 hover:scale-105 text-lg px-12 py-6 shadow-lg hover:shadow-xl"
-            >
-              <MessageCircle className="mr-2 h-5 w-5" />
-              {user ? "Start Chatting" : "Get Started Free"}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="lg"
-              className="border-bulb-glow text-bulb-glow hover:bg-bulb-glow/10 transition-all duration-300 hover:scale-105 text-lg px-8 py-6 backdrop-blur-sm"
-            >
-              <Brain className="mr-2 h-5 w-5" />
-              View Capabilities
-            </Button>
-          </div>
+          <Button 
+            size="lg" 
+            onClick={handleGetStarted}
+            className="tech-gradient hover:opacity-90 transition-all duration-300 hover:scale-105 text-lg px-12 py-6 shadow-lg hover:shadow-xl"
+          >
+            {user ? "Continue Building" : "Start Your Journey"}
+          </Button>
         </div>
       </section>
 
@@ -225,15 +200,12 @@ const Index = () => {
               </span>
             </div>
             <div className="text-center text-muted-foreground">
-              <p>&copy; 2024 BulbAI. Illuminating innovation with artificial intelligence.</p>
+              <p>&copy; 2025 BulbAI. Building the future of development.</p>
             </div>
           </div>
         </div>
       </footer>
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal open={showAuthModal} onOpenChange={setShowAuthModal} />
 
       {/* Chat Interface */}
       {showChat && (
@@ -243,7 +215,6 @@ const Index = () => {
           onClose={handleChatClose}
         />
       )}
-
     </div>
   );
 };
