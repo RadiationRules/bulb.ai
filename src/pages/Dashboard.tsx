@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   Plus, 
   Folder, 
@@ -44,11 +45,13 @@ interface Project {
 export default function Dashboard() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
   const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [starredProjects, setStarredProjects] = useState<Project[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('explore');
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -155,7 +158,66 @@ export default function Dashboard() {
   };
 
   const createNewProject = async () => {
-    navigate('/workspace/new');
+    if (!profile) return;
+    
+    setIsCreating(true);
+    try {
+      const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+          title: 'Untitled Project',
+          description: 'A new BulbAI project',
+          owner_id: profile.id,
+          visibility: 'private',
+          tags: []
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      // Create default files
+      const defaultFiles = [
+        {
+          project_id: newProject.id,
+          file_path: 'index.html',
+          file_content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${newProject.title}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #2563eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Welcome to Your New Project!</h1>
+        <p>Start building something amazing with BulbAI.</p>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>`,
+          file_type: 'html'
+        }
+      ];
+
+      await supabase.from('project_files').insert(defaultFiles);
+      
+      navigate(`/workspace/${newProject.id}`);
+    } catch (error) {
+      console.error('Error creating project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create project. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const openProject = (projectId: string) => {
@@ -283,35 +345,37 @@ export default function Dashboard() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground mt-2">
+              <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+              <p className="text-muted-foreground mt-1 sm:mt-2">
                 Welcome back, {profile?.display_name || 'Developer'}! Ready to build something amazing?
               </p>
             </div>
-            <Button onClick={createNewProject} className="flex items-center gap-2">
+            <Button onClick={createNewProject} disabled={isCreating} className="flex items-center gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
-              New Project
+              {isCreating ? 'Creating...' : 'New Project'}
             </Button>
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <div className="flex items-center justify-between">
-              <TabsList>
-                <TabsTrigger value="explore">Explore</TabsTrigger>
-                <TabsTrigger value="myprojects">My Projects ({myProjects.length})</TabsTrigger>
-                <TabsTrigger value="starred">Starred ({starredProjects.length})</TabsTrigger>
-              </TabsList>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <TabsList>
+              <TabsTrigger value="explore">Explore</TabsTrigger>
+              <TabsTrigger value="myprojects" className="hidden sm:inline-flex">My Projects ({myProjects.length})</TabsTrigger>
+              <TabsTrigger value="myprojects" className="sm:hidden">Mine ({myProjects.length})</TabsTrigger>
+              <TabsTrigger value="starred" className="hidden sm:inline-flex">Starred ({starredProjects.length})</TabsTrigger>
+              <TabsTrigger value="starred" className="sm:hidden">★ ({starredProjects.length})</TabsTrigger>
+            </TabsList>
               
-              <div className="flex items-center gap-2">
-                <div className="relative">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-none">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Search projects..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 w-80"
+                    className="pl-10 w-full sm:w-80"
                   />
                 </div>
                 <Button variant="outline" size="icon">
@@ -321,7 +385,7 @@ export default function Dashboard() {
             </div>
 
             <TabsContent value="explore" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {projects.filter(project => 
                   project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||

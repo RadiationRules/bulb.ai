@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { signInWithGoogle, signInWithEmail, signUpWithEmail } from "@/lib/firebase";
-import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 import { Mail, Lock, User } from "lucide-react";
 
 interface AuthModalProps {
@@ -17,13 +17,19 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signInWithGoogle();
-      toast({ title: "Success", description: "Signed in successfully!" });
-      onOpenChange(false);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`
+        }
+      });
+      if (error) throw error;
+      toast({ title: "Success", description: "Redirecting to Google..." });
     } catch (error: any) {
       toast({ 
         title: "Error", 
@@ -38,7 +44,11 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
     if (!email || !password) return;
     setIsLoading(true);
     try {
-      await signInWithEmail(email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
       toast({ title: "Success", description: "Signed in successfully!" });
       onOpenChange(false);
     } catch (error: any) {
@@ -55,8 +65,15 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
     if (!email || !password) return;
     setIsLoading(true);
     try {
-      await signUpWithEmail(email, password);
-      toast({ title: "Success", description: "Account created successfully!" });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+      if (error) throw error;
+      toast({ title: "Success", description: "Account created! Please check your email to confirm." });
       onOpenChange(false);
     } catch (error: any) {
       toast({ 

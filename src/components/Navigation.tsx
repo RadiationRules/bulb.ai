@@ -6,8 +6,8 @@ import { SettingsModal } from "./SettingsModal";
 import { ProfileModal } from "./ProfileModal";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 import { ApiConfigModal } from "./ApiConfigModal";
-import { auth, logout } from "@/lib/firebase";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle, Folder, Key } from "lucide-react";
 
 export const Navigation = () => {
@@ -17,18 +17,11 @@ export const Navigation = () => {
   const [showWorkspace, setShowWorkspace] = useState(false);
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
+  const { user, profile } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await logout();
+      await supabase.auth.signOut();
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -79,7 +72,7 @@ export const Navigation = () => {
           <div className="hidden md:flex items-center space-x-2">
             {user ? (
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground hidden lg:inline">{user.email}</span>
+                <span className="text-sm text-muted-foreground hidden lg:inline">{profile?.display_name || user.email}</span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -128,19 +121,19 @@ export const Navigation = () => {
               </div>
             ) : (
               <>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowAuthModal(true)}
-                  className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
-                >
-                  Sign In
-                </Button>
-                <Button 
-                  onClick={handleGetStarted}
-                  className="tech-gradient hover:opacity-90 transition-opacity"
-                >
-                  Get Started
-                </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowAuthModal(true)}
+                    className="border-border hover:bg-secondary/50 hover:border-tech-blue transition-all"
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    onClick={handleGetStarted}
+                    className="tech-gradient hover:opacity-90 transition-opacity"
+                  >
+                    Get Started Free
+                  </Button>
               </>
             )}
           </div>
@@ -185,7 +178,7 @@ export const Navigation = () => {
                 {user ? (
                   <div className="space-y-2">
                     <div className="text-sm text-muted-foreground mb-4 px-3">
-                      Signed in as {user.email}
+                      Signed in as {profile?.display_name || user.email}
                     </div>
                     <Button
                       variant="outline"
@@ -234,7 +227,7 @@ export const Navigation = () => {
                       onClick={handleGetStarted}
                       className="w-full tech-gradient hover:opacity-90 transition-opacity"
                     >
-                      Get Started
+                      Get Started Free
                     </Button>
                   </div>
                 )}

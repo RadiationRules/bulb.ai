@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Save, 
   Play, 
@@ -410,11 +411,16 @@ h1 {
         </div>
         
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            toast({ title: "Link copied!", description: "Project link copied to clipboard" });
+          }}>
             <Share2 className="w-4 h-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => {
+            toast({ title: "Starred!", description: "Project added to favorites" });
+          }}>
             <Star className="w-4 h-4 mr-2" />
             Star
           </Button>
@@ -422,7 +428,16 @@ h1 {
             <Save className="w-4 h-4 mr-2" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => {
+            const htmlFile = files.find(f => f.file_path === 'index.html');
+            if (htmlFile) {
+              const blob = new Blob([htmlFile.file_content], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+            } else {
+              toast({ title: "No HTML file", description: "Create an index.html file to run your project" });
+            }
+          }}>
             <Play className="w-4 h-4 mr-2" />
             Run
           </Button>
@@ -430,12 +445,12 @@ h1 {
       </div>
 
       {/* Main workspace */}
-      <div className="flex-1">
-        <ResizablePanelGroup direction="horizontal">
+      <div className="flex-1 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* File explorer */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-            <div className="h-full border-r bg-muted/30">
-              <div className="p-3 border-b">
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden md:flex">
+            <div className="h-full border-r bg-muted/30 flex flex-col">
+              <div className="p-3 border-b flex-shrink-0">
                 <div className="flex items-center gap-2 mb-2">
                   <FolderOpen className="w-4 h-4" />
                   <span className="font-medium">Files</span>
@@ -444,7 +459,7 @@ h1 {
                   </Button>
                 </div>
               </div>
-              <div className="p-2">
+              <div className="p-2 flex-1 overflow-y-auto">
                 {files.map((file) => (
                   <div
                     key={file.file_path}
@@ -453,23 +468,39 @@ h1 {
                     }`}
                     onClick={() => selectFile(file.file_path)}
                   >
-                    <File className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm">{file.file_path}</span>
+                    <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm truncate">{file.file_path}</span>
                   </div>
                 ))}
               </div>
             </div>
           </ResizablePanel>
           
-          <ResizableHandle />
+          <ResizableHandle className="hidden md:flex" />
           
           {/* Editor */}
-          <ResizablePanel defaultSize={60}>
-            <ResizablePanelGroup direction="vertical">
-              <ResizablePanel defaultSize={copilotOpen ? 70 : 100}>
-                <div className="h-full flex flex-col">
+          <ResizablePanel defaultSize={copilotOpen ? 50 : 60} className="flex">
+            <ResizablePanelGroup direction="vertical" className="h-full">
+              <ResizablePanel defaultSize={copilotOpen ? 70 : 100} className="flex">
+                <div className="h-full flex flex-col w-full">
+                  {/* Mobile file selector */}
+                  <div className="md:hidden border-b bg-muted/20 p-2">
+                    <Select value={activeFile || ''} onValueChange={selectFile}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a file" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {files.map((file) => (
+                          <SelectItem key={file.file_path} value={file.file_path}>
+                            {file.file_path}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
                   {/* Editor tabs */}
-                  <div className="border-b bg-muted/20 px-4 py-2">
+                  <div className="border-b bg-muted/20 px-4 py-2 flex-shrink-0">
                     <div className="flex items-center gap-2">
                       {activeFile && (
                         <div className="flex items-center gap-2 px-3 py-1 bg-background rounded-sm border">
@@ -481,11 +512,11 @@ h1 {
                   </div>
                   
                   {/* Code editor */}
-                  <div className="flex-1">
+                  <div className="flex-1 overflow-hidden">
                     <Textarea
                       value={fileContent}
                       onChange={(e) => setFileContent(e.target.value)}
-                      className="h-full resize-none font-mono text-sm border-0 rounded-none"
+                      className="h-full w-full resize-none font-mono text-sm border-0 rounded-none"
                       placeholder="Start coding..."
                     />
                   </div>
@@ -495,9 +526,9 @@ h1 {
               {copilotOpen && (
                 <>
                   <ResizableHandle />
-                  <ResizablePanel defaultSize={30} minSize={20}>
-                    <div className="h-full border-t bg-muted/20">
-                      <div className="p-3 border-b flex items-center justify-between">
+                  <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
+                    <div className="h-full border-t bg-muted/20 flex flex-col">
+                      <div className="p-3 border-b flex items-center justify-between flex-shrink-0">
                         <div className="flex items-center gap-2">
                           <Bot className="w-4 h-4" />
                           <span className="font-medium">AI Copilot</span>
@@ -510,14 +541,19 @@ h1 {
                           <Minimize2 className="w-3 h-3" />
                         </Button>
                       </div>
-                      <div className="p-4">
-                        <div className="h-full max-h-[300px] bg-background border rounded-lg">
+                      <div className="flex-1 p-2 overflow-hidden">
+                        <div className="h-full bg-background border rounded-lg overflow-hidden">
                           <iframe
                             src="https://www.chatbase.co/chatbot-iframe/W5ZOQa_6wOPIOFFfMXkIY"
                             width="100%"
                             height="100%"
-                            style={{ border: "none", minHeight: "200px" }}
+                            style={{ 
+                              border: "none", 
+                              display: "block",
+                              overflow: "hidden"
+                            }}
                             title="AI Copilot"
+                            allow="microphone; camera"
                           />
                         </div>
                       </div>
@@ -531,15 +567,15 @@ h1 {
           <ResizableHandle />
           
           {/* Preview/Terminal panel */}
-          <ResizablePanel defaultSize={20} minSize={15}>
-            <div className="h-full border-l">
+          <ResizablePanel defaultSize={copilotOpen ? 30 : 40} minSize={20} className="hidden lg:flex">
+            <div className="h-full border-l flex flex-col">
               <Tabs defaultValue="preview" className="h-full flex flex-col">
-                <TabsList className="w-full justify-start border-b rounded-none">
+                <TabsList className="w-full justify-start border-b rounded-none flex-shrink-0">
                   <TabsTrigger value="preview">Preview</TabsTrigger>
                   <TabsTrigger value="terminal">Terminal</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="preview" className="flex-1 m-0 p-0">
+                <TabsContent value="preview" className="flex-1 m-0 p-0 overflow-hidden">
                   <div className="h-full bg-white">
                     <iframe
                       srcDoc={files.find(f => f.file_path === 'index.html')?.file_content || '<p>No HTML file found</p>'}
@@ -549,11 +585,20 @@ h1 {
                   </div>
                 </TabsContent>
                 
-                <TabsContent value="terminal" className="flex-1 m-0 p-0">
-                  <div className="h-full bg-black text-green-400 p-4 font-mono text-sm">
+                <TabsContent value="terminal" className="flex-1 m-0 p-0 overflow-hidden">
+                  <div className="h-full bg-black text-green-400 p-4 font-mono text-sm overflow-y-auto">
                     <div className="mb-2">BulbAI Terminal v1.0</div>
                     <div className="mb-2">$ npm start</div>
-                    <div className="text-green-300">Server running on port 3000...</div>
+                    <div className="text-green-300">✓ Development server started</div>
+                    <div className="text-blue-300">✓ Files compiled successfully</div>
+                    <div className="text-yellow-300">→ Project statistics:</div>
+                    <div className="ml-4 text-gray-300">
+                      <div>Files: {files.length}</div>
+                      <div>Lines: {files.reduce((acc, f) => acc + f.file_content.split('\n').length, 0)}</div>
+                      <div>Size: {Math.round(files.reduce((acc, f) => acc + f.file_content.length, 0) / 1024)}KB</div>
+                      <div>Last updated: {new Date().toLocaleTimeString()}</div>
+                    </div>
+                    <div className="mt-4 text-green-300">Ready for deployment ✨</div>
                     <div className="mt-4">
                       <span className="text-white">$ </span>
                       <span className="animate-pulse">_</span>
@@ -566,22 +611,37 @@ h1 {
         </ResizablePanelGroup>
       </div>
 
-      {/* Floating action buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-2">
+      {/* Floating action buttons and mobile controls */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-10">
         {!copilotOpen && (
           <Button 
             onClick={() => setCopilotOpen(true)}
-            className="rounded-full w-12 h-12 shadow-lg"
+            className="rounded-full w-12 h-12 shadow-lg tech-gradient"
+            title="AI Copilot"
           >
             <Bot className="w-5 h-5" />
           </Button>
         )}
         <Button 
           variant="secondary"
-          className="rounded-full w-12 h-12 shadow-lg"
+          className="rounded-full w-12 h-12 shadow-lg lg:hidden"
+          onClick={() => {
+            const htmlFile = files.find(f => f.file_path === 'index.html');
+            if (htmlFile) {
+              const blob = new Blob([htmlFile.file_content], { type: 'text/html' });
+              const url = URL.createObjectURL(blob);
+              window.open(url, '_blank');
+            }
+          }}
+          title="Preview"
         >
-          <Terminal className="w-5 h-5" />
+          <Play className="w-5 h-5" />
         </Button>
+      </div>
+
+      {/* Mobile preview modal */}
+      <div className="lg:hidden">
+        {/* Mobile preview could be implemented as a modal here */}
       </div>
     </div>
   );

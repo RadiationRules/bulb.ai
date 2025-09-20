@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,7 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Settings, Palette, Zap, User, Shield, Bell, Monitor, Code2, Database, Cloud } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SettingsModalProps {
   open: boolean;
@@ -19,6 +21,7 @@ interface SettingsModalProps {
 
 export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
   const { toast } = useToast();
+  const { user, profile } = useAuth();
   const [darkMode, setDarkMode] = useState(true);
   const [animations, setAnimations] = useState(true);
   const [notifications, setNotifications] = useState(true);
@@ -33,13 +36,104 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
     betaFeatures: false,
     performanceMode: "balanced"
   });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = () => {
-    toast({
-      title: "Settings Saved",
-      description: "Your preferences have been updated successfully.",
-    });
-    onOpenChange(false);
+  // Load user preferences on mount
+  useEffect(() => {
+    if (profile && open) {
+      loadUserPreferences();
+    }
+  }, [profile, open]);
+
+  const loadUserPreferences = async () => {
+    try {
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+
+      if (preferences) {
+        setTheme(preferences.theme || 'dark');
+        setDarkMode(preferences.theme === 'dark');
+        if (preferences.ai_settings) {
+          const aiSettings = preferences.ai_settings as any;
+          setChatSpeed([aiSettings.chatSpeed || 50]);
+          setSettings(prev => ({
+            ...prev,
+            betaFeatures: aiSettings.betaFeatures || false,
+            performanceMode: aiSettings.performanceMode || 'balanced'
+          }));
+        }
+        if (preferences.notification_settings) {
+          const notificationSettings = preferences.notification_settings as any;
+          setNotifications(notificationSettings.enabled !== false);
+        }
+        if (preferences.editor_settings) {
+          const editorSettings = preferences.editor_settings as any;
+          setSettings(prev => ({
+            ...prev,
+            fontSize: editorSettings.fontSize || 'medium',
+            language: editorSettings.language || 'english',
+            autoBackup: editorSettings.autoSave !== false
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!profile) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: profile.id,
+          theme: theme,
+          notification_settings: { enabled: notifications },
+          editor_settings: {
+            fontSize: settings.fontSize,
+            language: settings.language,
+            autoSave: settings.autoBackup
+          },
+          ai_settings: {
+            chatSpeed: chatSpeed[0],
+            betaFeatures: settings.betaFeatures,
+            performanceMode: settings.performanceMode
+          }
+        });
+
+      if (error) throw error;
+
+      // Apply theme immediately
+      document.documentElement.className = theme === 'dark' ? 'dark' : '';
+      
+      toast({
+        title: "Settings Saved",
+        description: "Your preferences have been updated successfully.",
+      });
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save settings. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleThemeChange = (newTheme: string) => {
+    setTheme(newTheme);
+    setDarkMode(newTheme === 'dark');
+    // Apply immediately for preview
+    document.documentElement.className = newTheme === 'dark' ? 'dark' : '';
   };
 
   return (
@@ -53,7 +147,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
         </DialogHeader>
 
         <Tabs defaultValue="appearance" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
             <TabsTrigger value="appearance" className="flex items-center space-x-2">
               <Palette className="h-4 w-4" />
               <span className="hidden sm:inline">Theme</span>
@@ -89,7 +183,10 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                   <Switch
                     id="dark-mode"
                     checked={darkMode}
-                    onCheckedChange={setDarkMode}
+                    onCheckedChange={(checked) => {
+                      setDarkMode(checked);
+                      handleThemeChange(checked ? 'dark' : 'light');
+                    }}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -100,66 +197,53 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     onCheckedChange={setAnimations}
                   />
                 </div>
-                  <div className="space-y-2">
-                    <Label>Color Theme</Label>
-                    <Select value={theme} onValueChange={setTheme}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="dark">Dark Blue</SelectItem>
-                        <SelectItem value="purple">Purple Glow</SelectItem>
-                        <SelectItem value="green">Tech Green</SelectItem>
-                        <SelectItem value="orange">Innovation Orange</SelectItem>
-                        <SelectItem value="neon">Neon Cyber</SelectItem>
-                        <SelectItem value="minimal">Minimal Clean</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Font Size</Label>
-                    <Select value={settings.fontSize} onValueChange={(value) => setSettings({...settings, fontSize: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="small">Small</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="large">Large</SelectItem>
-                        <SelectItem value="extra-large">Extra Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Language</Label>
-                    <Select value={settings.language} onValueChange={(value) => setSettings({...settings, language: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="english">English</SelectItem>
-                        <SelectItem value="spanish">Español</SelectItem>
-                        <SelectItem value="french">Français</SelectItem>
-                        <SelectItem value="german">Deutsch</SelectItem>
-                        <SelectItem value="chinese">中文</SelectItem>
-                        <SelectItem value="japanese">日本語</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Color Theme</Label>
+                  <Select value={theme} onValueChange={handleThemeChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="dark">Dark Blue</SelectItem>
+                      <SelectItem value="light">Light Mode</SelectItem>
+                      <SelectItem value="purple">Purple Glow</SelectItem>
+                      <SelectItem value="green">Tech Green</SelectItem>
+                      <SelectItem value="orange">Innovation Orange</SelectItem>
+                      <SelectItem value="neon">Neon Cyber</SelectItem>
+                      <SelectItem value="minimal">Minimal Clean</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="high-contrast">High Contrast Mode</Label>
-                    <Switch id="high-contrast" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="reduce-motion">Reduce Motion</Label>
-                    <Switch id="reduce-motion" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="compact-mode">Compact Interface</Label>
-                    <Switch id="compact-mode" />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Font Size</Label>
+                  <Select value={settings.fontSize} onValueChange={(value) => setSettings({...settings, fontSize: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="small">Small</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="large">Large</SelectItem>
+                      <SelectItem value="extra-large">Extra Large</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Language</Label>
+                  <Select value={settings.language} onValueChange={(value) => setSettings({...settings, language: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="english">English</SelectItem>
+                      <SelectItem value="spanish">Español</SelectItem>
+                      <SelectItem value="french">Français</SelectItem>
+                      <SelectItem value="german">Deutsch</SelectItem>
+                      <SelectItem value="chinese">中文</SelectItem>
+                      <SelectItem value="japanese">日本語</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </Card>
           </TabsContent>
@@ -193,18 +277,6 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                   </Select>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="auto-suggestions">Auto Suggestions</Label>
-                  <Switch id="auto-suggestions" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="smart-completion">Smart Code Completion</Label>
-                  <Switch id="smart-completion" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="context-awareness">Context Awareness</Label>
-                  <Switch id="context-awareness" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
                   <Label htmlFor="beta-features">Beta Features</Label>
                   <Switch 
                     id="beta-features" 
@@ -218,38 +290,11 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
 
           <TabsContent value="account" className="space-y-6">
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Account & Subscription</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-tech-blue/10 border border-tech-blue/20">
-                  <div>
-                    <h4 className="font-semibold text-foreground">Pro Plan</h4>
-                    <p className="text-sm text-muted-foreground">Unlimited AI interactions, priority support</p>
-                  </div>
-                  <Badge className="bg-tech-blue text-white">Active</Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button variant="outline" className="w-full">
-                    Manage Subscription
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    Billing History
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    Usage Statistics
-                  </Button>
-                  <Button variant="outline" className="w-full">
-                    Export Data
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4">Account Information</h3>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="display-name">Display Name</Label>
-                  <Input id="display-name" defaultValue="John Developer" />
+                  <Input id="display-name" defaultValue={profile?.display_name || ''} />
                 </div>
                 <div>
                   <Label htmlFor="timezone">Timezone</Label>
@@ -272,6 +317,14 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     id="auto-backup" 
                     checked={settings.autoBackup}
                     onCheckedChange={(checked) => setSettings({...settings, autoBackup: checked})}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="notifications">Notifications</Label>
+                  <Switch 
+                    id="notifications" 
+                    checked={notifications}
+                    onCheckedChange={setNotifications}
                   />
                 </div>
               </div>
@@ -314,36 +367,6 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     </Select>
                   </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="auto-format">Auto Format on Save</Label>
-                  <Switch id="auto-format" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="line-numbers">Show Line Numbers</Label>
-                  <Switch id="line-numbers" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="minimap">Show Minimap</Label>
-                  <Switch id="minimap" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">AI Code Assistance</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="inline-suggestions">Inline Code Suggestions</Label>
-                  <Switch id="inline-suggestions" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="auto-imports">Auto Import Suggestions</Label>
-                  <Switch id="auto-imports" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="error-fixing">Auto Error Fixing</Label>
-                  <Switch id="error-fixing" />
-                </div>
               </div>
             </Card>
           </TabsContent>
@@ -362,31 +385,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                       <p className="text-sm text-muted-foreground">Version control integration</p>
                     </div>
                   </div>
-                  <Badge variant="secondary">Connected</Badge>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-lg border border-border/50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded bg-tech-purple flex items-center justify-center">
-                      <Cloud className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Google Drive</h4>
-                      <p className="text-sm text-muted-foreground">Cloud storage sync</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Connect</Button>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-lg border border-border/50">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded bg-bulb-glow flex items-center justify-center">
-                      <Monitor className="h-4 w-4 text-background" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Slack</h4>
-                      <p className="text-sm text-muted-foreground">Team collaboration</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Connect</Button>
+                  <Badge variant="secondary">Available</Badge>
                 </div>
               </div>
             </Card>
@@ -394,99 +393,43 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
 
           <TabsContent value="privacy" className="space-y-6">
             <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Privacy & Data Control</h3>
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Shield className="h-5 w-5 mr-2 text-tech-purple" />
+                Security Settings
+              </h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="notifications">Push Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Receive updates and alerts</p>
-                  </div>
-                  <Switch
-                    id="notifications"
-                    checked={notifications}
-                    onCheckedChange={setNotifications}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="analytics">Usage Analytics</Label>
-                    <p className="text-sm text-muted-foreground">Help improve BulbAI with anonymous usage data</p>
+                    <Label>Data Analytics</Label>
+                    <p className="text-sm text-muted-foreground">Help improve BulbAI by sharing anonymous usage data</p>
                   </div>
                   <Switch 
-                    id="analytics" 
                     checked={settings.analyticsEnabled}
                     onCheckedChange={(checked) => setSettings({...settings, analyticsEnabled: checked})}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="chat-history">Save Chat History</Label>
-                    <p className="text-sm text-muted-foreground">Store conversations for future reference</p>
+                    <Label>Auto-save Projects</Label>
+                    <p className="text-sm text-muted-foreground">Automatically save your work as you code</p>
                   </div>
-                  <Switch id="chat-history" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="data-sharing">Share Data for Research</Label>
-                    <p className="text-sm text-muted-foreground">Contribute to AI research (fully anonymized)</p>
-                  </div>
-                  <Switch id="data-sharing" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Security Settings</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Two-Factor Authentication</Label>
-                    <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
-                  </div>
-                  <Button variant="outline" size="sm">Enable</Button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Session Timeout</Label>
-                    <p className="text-sm text-muted-foreground">Auto-logout after inactivity</p>
-                  </div>
-                  <Select defaultValue="30min">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15min">15 min</SelectItem>
-                      <SelectItem value="30min">30 min</SelectItem>
-                      <SelectItem value="1hour">1 hour</SelectItem>
-                      <SelectItem value="never">Never</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Button variant="outline" className="w-full">
-                    Download My Data
-                  </Button>
-                  <Button variant="destructive" className="w-full">
-                    Delete Account
-                  </Button>
+                  <Switch 
+                    checked={settings.autoBackup}
+                    onCheckedChange={(checked) => setSettings({...settings, autoBackup: checked})}
+                  />
                 </div>
               </div>
             </Card>
           </TabsContent>
         </Tabs>
 
-        <div className="flex justify-between items-center pt-4">
-          <div className="text-sm text-muted-foreground">
-            Settings are automatically saved
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            <Button onClick={handleSave} className="tech-gradient">
-              Save All Changes
-            </Button>
-          </div>
+        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isLoading} className="tech-gradient">
+            {isLoading ? 'Saving...' : 'Save Settings'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
