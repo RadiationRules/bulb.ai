@@ -30,7 +30,8 @@ import {
   Terminal,
   Bot,
   Send,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -54,8 +55,22 @@ interface Project {
   updated_at: string;
 }
 
-// Copilot Chat Component
-const CopilotChat = () => {
+// Copilot Chat Component with file management
+const CopilotChat = ({ 
+  activeFile, 
+  fileContent, 
+  files,
+  onUpdateFile,
+  onCreateFile,
+  onDeleteFile 
+}: { 
+  activeFile: string | null;
+  fileContent: string;
+  files: ProjectFile[];
+  onUpdateFile: (content: string) => void;
+  onCreateFile: (path: string, content: string, type: string) => void;
+  onDeleteFile: (path: string) => void;
+}) => {
   const [input, setInput] = useState('');
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -70,60 +85,126 @@ const CopilotChat = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     
-    const messageToSend = input;
+    // Add context about current file
+    let contextMessage = input;
+    if (activeFile) {
+      contextMessage = `Context: Currently editing ${activeFile}\n\nAvailable files: ${files.map(f => f.file_path).join(', ')}\n\nUser request: ${input}\n\nPlease provide code suggestions or file operations. You can suggest:\n- Code changes (I'll show them to apply)\n- Create new file: "CREATE_FILE: filename.ext"\n- Delete file: "DELETE_FILE: filename.ext"`;
+    }
+    
+    const messageToSend = contextMessage;
     setInput('');
     await sendMessage(messageToSend);
   };
 
+  const parseAIResponse = (response: string) => {
+    // Check for file operations in AI response
+    if (response.includes('CREATE_FILE:')) {
+      const match = response.match(/CREATE_FILE:\s*(\S+)/);
+      if (match) {
+        const filename = match[1];
+        const extension = filename.split('.').pop() || 'txt';
+        onCreateFile(filename, '// New file created by AI\n', extension);
+      }
+    }
+    if (response.includes('DELETE_FILE:')) {
+      const match = response.match(/DELETE_FILE:\s*(\S+)/);
+      if (match) {
+        onDeleteFile(match[1]);
+      }
+    }
+    // Check for code blocks to apply to current file
+    const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
+    if (codeMatch && activeFile) {
+      return {
+        hasCode: true,
+        code: codeMatch[1]
+      };
+    }
+    return { hasCode: false };
+  };
+
   return (
-    <div className="h-full flex flex-col bg-background rounded-lg border">
-      <div className="p-2 border-b flex items-center justify-between flex-shrink-0">
-        <span className="text-sm font-medium">Chat</span>
+    <div className="h-full flex flex-col bg-background">
+      <div className="p-2 border-b flex items-center justify-between flex-shrink-0 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Bot className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium">AI Copilot</span>
+        </div>
         <Button variant="ghost" size="sm" onClick={clearMessages}>
           <RotateCcw className="w-3 h-3" />
         </Button>
       </div>
       
-      <ScrollArea className="flex-1 p-3" ref={scrollRef}>
-        <div className="space-y-3">
+      {activeFile && (
+        <div className="px-2 py-1 text-xs bg-muted/20 border-b flex items-center gap-1">
+          <File className="w-3 h-3" />
+          <span className="truncate">{activeFile}</span>
+        </div>
+      )}
+      
+      <ScrollArea className="flex-1 p-2" ref={scrollRef}>
+        <div className="space-y-2">
           {messages.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              Ask me anything about your code!
+            <div className="text-center py-6 text-muted-foreground text-xs">
+              <Bot className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>I can help you:</p>
+              <ul className="mt-2 text-left space-y-1 max-w-[200px] mx-auto">
+                <li>• Write & fix code</li>
+                <li>• Create new files</li>
+                <li>• Delete files</li>
+                <li>• Explain code</li>
+              </ul>
             </div>
           )}
           
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex gap-2 text-sm",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3 h-3 text-white" />
-                </div>
-              )}
+          {messages.map((message, index) => {
+            const parsed = message.role === 'assistant' ? parseAIResponse(message.content) : { hasCode: false };
+            
+            return (
               <div
+                key={index}
                 className={cn(
-                  "rounded px-3 py-2 max-w-[85%]",
-                  message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
+                  "flex gap-1.5 text-xs",
+                  message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
-                <p className="whitespace-pre-wrap break-words text-xs">{message.content}</p>
+                {message.role === "assistant" && (
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-3 h-3 text-white" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div
+                    className={cn(
+                      "rounded px-2 py-1.5",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground ml-8"
+                        : "bg-muted"
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap break-words text-[11px] leading-relaxed">{message.content}</p>
+                  </div>
+                  {parsed.hasCode && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-1 h-6 text-[10px]"
+                      onClick={() => parsed.code && onUpdateFile(parsed.code)}
+                    >
+                      Apply Code
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-2">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+            <div className="flex gap-1.5">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
                 <Bot className="w-3 h-3 text-white" />
               </div>
-              <div className="rounded px-3 py-2 bg-muted">
+              <div className="rounded px-2 py-1.5 bg-muted">
                 <Loader2 className="w-3 h-3 animate-spin" />
               </div>
             </div>
@@ -131,21 +212,21 @@ const CopilotChat = () => {
         </div>
       </ScrollArea>
 
-      <div className="p-2 border-t flex-shrink-0">
-        <form onSubmit={handleSubmit} className="flex gap-2">
+      <div className="p-2 border-t flex-shrink-0 bg-muted/20">
+        <form onSubmit={handleSubmit} className="flex gap-1">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask..."
+            placeholder="Ask AI..."
             disabled={isLoading}
-            className="flex-1 h-8 text-sm"
+            className="flex-1 h-7 text-xs"
           />
           {isLoading ? (
-            <Button type="button" onClick={stopGeneration} size="sm" variant="destructive" className="h-8">
-              Stop
+            <Button type="button" onClick={stopGeneration} size="sm" variant="destructive" className="h-7 px-2">
+              <X className="h-3 w-3" />
             </Button>
           ) : (
-            <Button type="submit" disabled={!input.trim()} size="sm" className="h-8">
+            <Button type="submit" disabled={!input.trim()} size="sm" className="h-7 px-2">
               <Send className="h-3 w-3" />
             </Button>
           )}
@@ -167,8 +248,6 @@ export default function Workspace() {
   const [fileContent, setFileContent] = useState('');
   const [isNewProject, setIsNewProject] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [copilotOpen, setCopilotOpen] = useState(false);
-  const [terminalOpen, setTerminalOpen] = useState(false);
   
   // New project form
   const [projectTitle, setProjectTitle] = useState('');
@@ -408,6 +487,115 @@ h1 {
     }
   };
 
+  const handleCopilotUpdateFile = (content: string) => {
+    setFileContent(content);
+    toast({
+      title: "Code updated",
+      description: "AI suggestion applied to editor. Remember to save!",
+    });
+  };
+
+  const handleCopilotCreateFile = async (path: string, content: string, type: string) => {
+    if (!project) {
+      // For new projects
+      const newFile: ProjectFile = {
+        id: `temp-${Date.now()}`,
+        file_path: path,
+        file_content: content,
+        file_type: type
+      };
+      setFiles([...files, newFile]);
+      setActiveFile(path);
+      setFileContent(content);
+      toast({
+        title: "File created",
+        description: `${path} has been created`,
+      });
+    } else {
+      // For existing projects
+      try {
+        const { data, error } = await supabase
+          .from('project_files')
+          .insert({
+            project_id: project.id,
+            file_path: path,
+            file_content: content,
+            file_type: type
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setFiles([...files, data]);
+        setActiveFile(path);
+        setFileContent(content);
+        toast({
+          title: "File created",
+          description: `${path} has been created`,
+        });
+      } catch (error) {
+        console.error('Error creating file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to create file",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleCopilotDeleteFile = async (path: string) => {
+    if (!project) {
+      setFiles(files.filter(f => f.file_path !== path));
+      if (activeFile === path) {
+        const remaining = files.filter(f => f.file_path !== path);
+        if (remaining.length > 0) {
+          selectFile(remaining[0].file_path);
+        } else {
+          setActiveFile(null);
+          setFileContent('');
+        }
+      }
+      toast({
+        title: "File deleted",
+        description: `${path} has been removed`,
+      });
+    } else {
+      try {
+        const fileToDelete = files.find(f => f.file_path === path);
+        if (!fileToDelete) return;
+
+        await supabase
+          .from('project_files')
+          .delete()
+          .eq('id', fileToDelete.id);
+
+        setFiles(files.filter(f => f.file_path !== path));
+        if (activeFile === path) {
+          const remaining = files.filter(f => f.file_path !== path);
+          if (remaining.length > 0) {
+            selectFile(remaining[0].file_path);
+          } else {
+            setActiveFile(null);
+            setFileContent('');
+          }
+        }
+        toast({
+          title: "File deleted",
+          description: `${path} has been removed`,
+        });
+      } catch (error) {
+        console.error('Error deleting file:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete file",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -553,114 +741,103 @@ h1 {
       {/* Main workspace */}
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          {/* File explorer */}
+          {/* File explorer + Copilot */}
           <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden md:flex">
-            <div className="h-full border-r bg-muted/30 flex flex-col">
-              <div className="p-3 border-b flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <FolderOpen className="w-4 h-4" />
-                  <span className="font-medium">Files</span>
-                  <Button variant="ghost" size="sm" className="ml-auto">
-                    <Plus className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-              <div className="p-2 flex-1 overflow-y-auto">
-                {files.map((file) => (
-                  <div
-                    key={file.file_path}
-                    className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-accent ${
-                      activeFile === file.file_path ? 'bg-accent' : ''
-                    }`}
-                    onClick={() => selectFile(file.file_path)}
-                  >
-                    <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm truncate">{file.file_path}</span>
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={50} minSize={30}>
+                <div className="h-full border-r bg-muted/30 flex flex-col">
+                  <div className="p-3 border-b flex-shrink-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FolderOpen className="w-4 h-4" />
+                      <span className="font-medium">Files</span>
+                      <Button variant="ghost" size="sm" className="ml-auto">
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div className="p-2 flex-1 overflow-y-auto">
+                    {files.map((file) => (
+                      <div
+                        key={file.file_path}
+                        className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-accent ${
+                          activeFile === file.file_path ? 'bg-accent' : ''
+                        }`}
+                        onClick={() => selectFile(file.file_path)}
+                      >
+                        <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-sm truncate">{file.file_path}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ResizablePanel>
+              
+              <ResizableHandle />
+              
+              <ResizablePanel defaultSize={50} minSize={30}>
+                <div className="h-full border-r border-t">
+                  <CopilotChat 
+                    activeFile={activeFile}
+                    fileContent={fileContent}
+                    files={files}
+                    onUpdateFile={handleCopilotUpdateFile}
+                    onCreateFile={handleCopilotCreateFile}
+                    onDeleteFile={handleCopilotDeleteFile}
+                  />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
           
           <ResizableHandle className="hidden md:flex" />
           
           {/* Editor */}
-          <ResizablePanel defaultSize={copilotOpen ? 50 : 60} className="flex">
-            <ResizablePanelGroup direction="vertical" className="h-full">
-              <ResizablePanel defaultSize={copilotOpen ? 70 : 100} className="flex">
-                <div className="h-full flex flex-col w-full">
-                  {/* Mobile file selector */}
-                  <div className="md:hidden border-b bg-muted/20 p-2">
-                    <Select value={activeFile || ''} onValueChange={selectFile}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a file" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {files.map((file) => (
-                          <SelectItem key={file.file_path} value={file.file_path}>
-                            {file.file_path}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {/* Editor tabs */}
-                  <div className="border-b bg-muted/20 px-4 py-2 flex-shrink-0">
-                    <div className="flex items-center gap-2">
-                      {activeFile && (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-background rounded-sm border">
-                          <File className="w-3 h-3" />
-                          <span className="text-sm">{activeFile}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Code editor */}
-                  <div className="flex-1 overflow-hidden">
-                    <Textarea
-                      value={fileContent}
-                      onChange={(e) => setFileContent(e.target.value)}
-                      className="h-full w-full resize-none font-mono text-sm border-0 rounded-none"
-                      placeholder="Start coding..."
-                    />
-                  </div>
-                </div>
-              </ResizablePanel>
+          <ResizablePanel defaultSize={60} className="flex">
+            <div className="h-full flex flex-col w-full">
+              {/* Mobile file selector */}
+              <div className="md:hidden border-b bg-muted/20 p-2">
+                <Select value={activeFile || ''} onValueChange={selectFile}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a file" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {files.map((file) => (
+                      <SelectItem key={file.file_path} value={file.file_path}>
+                        {file.file_path}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               
-              {copilotOpen && (
-                <>
-                  <ResizableHandle />
-                  <ResizablePanel defaultSize={30} minSize={20} maxSize={50}>
-                    <div className="h-full border-t bg-muted/20 flex flex-col">
-                      <div className="p-3 border-b flex items-center justify-between flex-shrink-0">
-                        <div className="flex items-center gap-2">
-                          <Bot className="w-4 h-4" />
-                          <span className="font-medium">AI Copilot</span>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setCopilotOpen(false)}
-                        >
-                          <Minimize2 className="w-3 h-3" />
-                        </Button>
-                      </div>
-                      <div className="flex-1 p-2 overflow-hidden">
-                        <CopilotChat />
-                      </div>
+              {/* Editor tabs */}
+              <div className="border-b bg-muted/20 px-4 py-2 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  {activeFile && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded-sm border">
+                      <File className="w-3 h-3" />
+                      <span className="text-sm">{activeFile}</span>
                     </div>
-                  </ResizablePanel>
-                </>
-              )}
-            </ResizablePanelGroup>
+                  )}
+                </div>
+              </div>
+              
+              {/* Code editor */}
+              <div className="flex-1 overflow-hidden">
+                <Textarea
+                  value={fileContent}
+                  onChange={(e) => setFileContent(e.target.value)}
+                  className="h-full w-full resize-none font-mono text-sm border-0 rounded-none"
+                  placeholder="Start coding..."
+                />
+              </div>
+            </div>
           </ResizablePanel>
           
           <ResizableHandle />
           
           {/* Preview/Terminal panel */}
-          <ResizablePanel defaultSize={copilotOpen ? 30 : 40} minSize={20} className="hidden lg:flex">
+          <ResizablePanel defaultSize={40} minSize={20} className="hidden lg:flex">
             <div className="h-full border-l flex flex-col">
               <Tabs defaultValue="preview" className="h-full flex flex-col">
                 <TabsList className="w-full justify-start border-b rounded-none flex-shrink-0">
@@ -704,20 +881,11 @@ h1 {
         </ResizablePanelGroup>
       </div>
 
-      {/* Floating action buttons and mobile controls */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-2 z-10">
-        {!copilotOpen && (
-          <Button 
-            onClick={() => setCopilotOpen(true)}
-            className="rounded-full w-12 h-12 shadow-lg tech-gradient"
-            title="AI Copilot"
-          >
-            <Bot className="w-5 h-5" />
-          </Button>
-        )}
+      {/* Mobile preview button */}
+      <div className="fixed bottom-6 right-6 z-10 lg:hidden">
         <Button 
           variant="secondary"
-          className="rounded-full w-12 h-12 shadow-lg lg:hidden"
+          className="rounded-full w-12 h-12 shadow-lg"
           onClick={() => {
             const htmlFile = files.find(f => f.file_path === 'index.html');
             if (htmlFile) {
