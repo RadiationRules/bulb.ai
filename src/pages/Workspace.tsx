@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useChat } from '@/hooks/useChat';
+import { cn } from '@/lib/utils';
 import { 
   Save, 
   Play, 
@@ -25,7 +28,9 @@ import {
   Maximize2,
   RotateCcw,
   Terminal,
-  Bot
+  Bot,
+  Send,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -48,6 +53,107 @@ interface Project {
   created_at: string;
   updated_at: string;
 }
+
+// Copilot Chat Component
+const CopilotChat = () => {
+  const [input, setInput] = useState('');
+  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const messageToSend = input;
+    setInput('');
+    await sendMessage(messageToSend);
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-background rounded-lg border">
+      <div className="p-2 border-b flex items-center justify-between flex-shrink-0">
+        <span className="text-sm font-medium">Chat</span>
+        <Button variant="ghost" size="sm" onClick={clearMessages}>
+          <RotateCcw className="w-3 h-3" />
+        </Button>
+      </div>
+      
+      <ScrollArea className="flex-1 p-3" ref={scrollRef}>
+        <div className="space-y-3">
+          {messages.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Ask me anything about your code!
+            </div>
+          )}
+          
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={cn(
+                "flex gap-2 text-sm",
+                message.role === "user" ? "justify-end" : "justify-start"
+              )}
+            >
+              {message.role === "assistant" && (
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <div
+                className={cn(
+                  "rounded px-3 py-2 max-w-[85%]",
+                  message.role === "user"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                )}
+              >
+                <p className="whitespace-pre-wrap break-words text-xs">{message.content}</p>
+              </div>
+            </div>
+          ))}
+          
+          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+            <div className="flex gap-2">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                <Bot className="w-3 h-3 text-white" />
+              </div>
+              <div className="rounded px-3 py-2 bg-muted">
+                <Loader2 className="w-3 h-3 animate-spin" />
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+
+      <div className="p-2 border-t flex-shrink-0">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask..."
+            disabled={isLoading}
+            className="flex-1 h-8 text-sm"
+          />
+          {isLoading ? (
+            <Button type="button" onClick={stopGeneration} size="sm" variant="destructive" className="h-8">
+              Stop
+            </Button>
+          ) : (
+            <Button type="submit" disabled={!input.trim()} size="sm" className="h-8">
+              <Send className="h-3 w-3" />
+            </Button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+};
 
 export default function Workspace() {
   const { projectId } = useParams();
@@ -542,20 +648,7 @@ h1 {
                         </Button>
                       </div>
                       <div className="flex-1 p-2 overflow-hidden">
-                        <div className="h-full bg-background border rounded-lg overflow-hidden">
-                          <iframe
-                            src="https://www.chatbase.co/chatbot-iframe/W5ZOQa_6wOPIOFFfMXkIY"
-                            width="100%"
-                            height="100%"
-                            style={{ 
-                              border: "none", 
-                              display: "block",
-                              overflow: "hidden"
-                            }}
-                            title="AI Copilot"
-                            allow="microphone; camera"
-                          />
-                        </div>
+                        <CopilotChat />
                       </div>
                     </div>
                   </ResizablePanel>

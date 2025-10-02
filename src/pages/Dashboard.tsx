@@ -24,6 +24,7 @@ import {
   Filter
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { ProjectSettings } from '@/components/ProjectSettings';
 
 interface Project {
   id: string;
@@ -282,6 +283,16 @@ export default function Dashboard() {
                 {project.visibility === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
                 {project.visibility}
               </Badge>
+              {!showOwner && (
+                <ProjectSettings 
+                  projectId={project.id} 
+                  projectTitle={project.title}
+                  onUpdate={() => {
+                    fetchMyProjects();
+                    fetchStarredProjects();
+                  }}
+                />
+              )}
             </div>
           </div>
         </CardHeader>
