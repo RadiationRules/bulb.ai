@@ -75,6 +75,7 @@ const CopilotPanel = ({
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const processedMessagesRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,10 +83,22 @@ const CopilotPanel = ({
     }
   }, [messages]);
 
+  // Auto-apply AI responses
+  useEffect(() => {
+    messages.forEach((message, index) => {
+      if (message.role === 'assistant' && !processedMessagesRef.current.has(index)) {
+        processedMessagesRef.current.add(index);
+        parseAndApplyAIResponse(message.content);
+      }
+    });
+  }, [messages]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     
+    // Build context for AI but don't show it to user
+    const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
       contextMessage = `Context: Currently editing "${activeFile}"
@@ -99,17 +112,16 @@ ${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}
 
 User request: ${input}
 
-You can:
-- Suggest code improvements (wrap in code blocks)
-- Create files: "CREATE_FILE: filename.ext"
-- Delete files: "DELETE_FILE: filename.ext"`;
+Respond with code changes wrapped in \`\`\` blocks. For file operations use:
+- CREATE_FILE: filename.ext (then provide content)
+- DELETE_FILE: filename.ext`;
     }
     
-    const messageToSend = contextMessage;
     setInput('');
     
     try {
-      await sendMessage(messageToSend);
+      // Send context to AI but store user message for display
+      await sendMessage(contextMessage, userMessage);
     } catch (error) {
       console.error('Chat error:', error);
       toast({
@@ -120,37 +132,44 @@ You can:
     }
   };
 
-  const parseAIResponse = (response: string) => {
+  const parseAndApplyAIResponse = (response: string) => {
+    // Auto-create files
     if (response.includes('CREATE_FILE:')) {
       const match = response.match(/CREATE_FILE:\s*(\S+)/);
       if (match) {
         const filename = match[1];
         const extension = filename.split('.').pop() || 'txt';
-        onCreateFile(filename, '// New file created by AI\n', extension);
+        const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
+        const content = contentMatch ? contentMatch[1] : '// New file\n';
+        onCreateFile(filename, content, extension);
         toast({
-          title: 'File created',
+          title: '✓ File created',
           description: `Created ${filename}`,
         });
       }
     }
+    
+    // Auto-delete files
     if (response.includes('DELETE_FILE:')) {
       const match = response.match(/DELETE_FILE:\s*(\S+)/);
       if (match) {
         onDeleteFile(match[1]);
         toast({
-          title: 'File deleted',
+          title: '✓ File deleted',
           description: `Deleted ${match[1]}`,
         });
       }
     }
+    
+    // Auto-apply code changes
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
     if (codeMatch && activeFile) {
-      return {
-        hasCode: true,
-        code: codeMatch[1]
-      };
+      onUpdateFile(codeMatch[1]);
+      toast({
+        title: '✓ Code applied',
+        description: 'Changes applied and saved automatically',
+      });
     }
-    return { hasCode: false };
   };
 
   return (
@@ -231,68 +250,38 @@ You can:
             </div>
           )}
           
-          {messages.map((message, index) => {
-            const parsed = message.role === 'assistant' ? parseAIResponse(message.content) : { hasCode: false };
-            
-            return (
-              <div
-                key={index}
-                className={cn(
-                  "flex gap-4 animate-fade-in",
-                  message.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                {message.role === "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-5 h-5 text-white" />
-                  </div>
-                )}
-                <div className="flex-1 max-w-[85%]">
-                  <div
-                    className={cn(
-                      "rounded-2xl px-5 py-3 shadow-sm",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground ml-auto"
-                        : "bg-card border"
-                    )}
-                  >
-                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
-                  </div>
-                  {parsed.hasCode && (
-                    <div className="mt-3 flex gap-2">
-                      <Button 
-                        size="sm" 
-                        onClick={() => parsed.code && onUpdateFile(parsed.code)}
-                        className="shadow-sm"
-                      >
-                        Apply Code
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          if (parsed.code) {
-                            navigator.clipboard.writeText(parsed.code);
-                            toast({
-                              title: 'Copied',
-                              description: 'Code copied to clipboard'
-                            });
-                          }
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  )}
+          {messages.map((message, index) => (
+            <div
+              key={index}
+              className={cn(
+                "flex gap-4 animate-fade-in",
+                message.role === "user" ? "justify-end" : "justify-start"
+              )}
+            >
+              {message.role === "assistant" && (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                  <Bot className="w-5 h-5 text-white" />
                 </div>
-                {message.role === "user" && (
-                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                    <span className="text-primary-foreground font-semibold text-sm">You</span>
-                  </div>
-                )}
+              )}
+              <div className="flex-1 max-w-[85%]">
+                <div
+                  className={cn(
+                    "rounded-2xl px-5 py-3 shadow-sm",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground ml-auto"
+                      : "bg-card border"
+                  )}
+                >
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+                </div>
               </div>
-            );
-          })}
+              {message.role === "user" && (
+                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <span className="text-primary-foreground font-semibold text-sm">You</span>
+                </div>
+              )}
+            </div>
+          ))}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-4 animate-fade-in">
@@ -601,12 +590,33 @@ h1 {
     }
   };
 
-  const handleCopilotUpdateFile = (content: string) => {
+  const handleCopilotUpdateFile = async (content: string) => {
     setFileContent(content);
-    toast({
-      title: "Code updated",
-      description: "AI suggestion applied to editor. Remember to save!",
-    });
+    
+    // Auto-save after update
+    if (project && activeFile) {
+      try {
+        const fileToUpdate = files.find(f => f.file_path === activeFile);
+        
+        if (fileToUpdate) {
+          const { error } = await supabase
+            .from('project_files')
+            .update({ file_content: content })
+            .eq('id', fileToUpdate.id);
+
+          if (error) throw error;
+          
+          // Update local state
+          setFiles(files.map(f => 
+            f.file_path === activeFile 
+              ? { ...f, file_content: content }
+              : f
+          ));
+        }
+      } catch (error) {
+        console.error('Auto-save error:', error);
+      }
+    }
   };
 
   const handleCopilotCreateFile = async (path: string, content: string, type: string) => {
@@ -887,7 +897,7 @@ h1 {
           <ResizableHandle className="hidden md:flex" />
           
           {/* Editor */}
-          <ResizablePanel defaultSize={60} className="flex">
+          <ResizablePanel defaultSize={40} className="flex">
             <div className="h-full flex flex-col w-full">
               {/* Mobile file selector */}
               <div className="md:hidden border-b bg-muted/20 p-2">

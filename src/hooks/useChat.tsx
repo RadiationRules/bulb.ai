@@ -10,15 +10,19 @@ export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const streamChat = async (userMessage: string) => {
+  const streamChat = async (userMessage: string, displayMessage?: string) => {
     if (!userMessage.trim()) return;
 
-    const newUserMessage: Message = { role: 'user', content: userMessage };
+    // Use displayMessage for UI, userMessage for AI
+    const newUserMessage: Message = { role: 'user', content: displayMessage || userMessage };
     setMessages(prev => [...prev, newUserMessage]);
     setIsLoading(true);
 
     try {
       abortControllerRef.current = new AbortController();
+      
+      // Send full context to AI
+      const messagesWithContext = [...messages, { role: 'user' as const, content: userMessage }];
       
       const response = await fetch(
         'https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat',
@@ -27,7 +31,7 @@ export const useChat = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ messages: [...messages, newUserMessage] }),
+          body: JSON.stringify({ messages: messagesWithContext }),
           signal: abortControllerRef.current.signal,
         }
       );
