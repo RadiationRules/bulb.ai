@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { MoreVertical, Trash2, Copy, Edit, ExternalLink } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+
+const projectTitleSchema = z.string().trim().min(1, 'Title required').max(100, 'Title too long');
 
 interface ProjectSettingsProps {
   projectId: string;
@@ -91,11 +94,13 @@ export const ProjectSettings = ({ projectId, projectTitle, onUpdate }: ProjectSe
 
       if (filesError) throw filesError;
 
-      // Create new project
+      // Create new project with validated title
+      const newTitle = projectTitleSchema.parse(`${originalProject.title} (Copy)`.slice(0, 100));
+      
       const { data: newProject, error: newProjectError } = await supabase
         .from('projects')
         .insert({
-          title: `${originalProject.title} (Copy)`,
+          title: newTitle,
           description: originalProject.description,
           owner_id: originalProject.owner_id,
           visibility: 'private',

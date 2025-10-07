@@ -150,13 +150,17 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
+          company: string | null
           created_at: string
           display_name: string | null
           github_url: string | null
+          github_username: string | null
           id: string
+          linkedin_url: string | null
           location: string | null
           portfolio_url: string | null
           skills: string[] | null
+          twitter_url: string | null
           updated_at: string
           user_id: string
           username: string
@@ -164,13 +168,17 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           bio?: string | null
+          company?: string | null
           created_at?: string
           display_name?: string | null
           github_url?: string | null
+          github_username?: string | null
           id?: string
+          linkedin_url?: string | null
           location?: string | null
           portfolio_url?: string | null
           skills?: string[] | null
+          twitter_url?: string | null
           updated_at?: string
           user_id: string
           username: string
@@ -178,18 +186,67 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           bio?: string | null
+          company?: string | null
           created_at?: string
           display_name?: string | null
           github_url?: string | null
+          github_username?: string | null
           id?: string
+          linkedin_url?: string | null
           location?: string | null
           portfolio_url?: string | null
           skills?: string[] | null
+          twitter_url?: string | null
           updated_at?: string
           user_id?: string
           username?: string
         }
         Relationships: []
+      }
+      project_analytics: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          project_id: string
+          user_id: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          user_id?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_analytics_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_analytics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_files: {
         Row: {
@@ -360,6 +417,51 @@ export type Database = {
             foreignKeyName: "user_preferences_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_sessions: {
+        Row: {
+          active_file: string | null
+          created_at: string | null
+          cursor_position: Json | null
+          id: string
+          last_seen: string | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          active_file?: string | null
+          created_at?: string | null
+          cursor_position?: Json | null
+          id?: string
+          last_seen?: string | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          active_file?: string | null
+          created_at?: string | null
+          cursor_position?: Json | null
+          id?: string
+          last_seen?: string | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

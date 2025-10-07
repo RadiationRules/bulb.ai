@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback } from 'react';
+import { z } from 'zod';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
+
+const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -11,14 +14,15 @@ export const useChat = () => {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const streamChat = async (userMessage: string, displayMessage?: string) => {
-    if (!userMessage.trim()) return;
-
-    // Use displayMessage for UI, userMessage for AI
-    const newUserMessage: Message = { role: 'user', content: displayMessage || userMessage };
-    setMessages(prev => [...prev, newUserMessage]);
-    setIsLoading(true);
-
     try {
+      // Validate message
+      const validatedMessage = messageSchema.parse(userMessage);
+      
+      // Use displayMessage for UI, userMessage for AI
+      const newUserMessage: Message = { role: 'user', content: displayMessage || validatedMessage };
+      setMessages(prev => [...prev, newUserMessage]);
+      setIsLoading(true);
+
       abortControllerRef.current = new AbortController();
       
       // Send full context to AI
@@ -93,13 +97,19 @@ export const useChat = () => {
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error('Chat error:', error);
-        setMessages(prev => [
-          ...prev,
-          { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
-        ]);
+        if (error instanceof z.ZodError) {
+          setMessages(prev => [
+            ...prev,
+            { role: 'assistant', content: error.errors[0].message }
+          ]);
+        } else {
+          console.error('Chat error:', error);
+          setMessages(prev => [
+            ...prev,
+            { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
+          ]);
+        }
       }
-    } finally {
       setIsLoading(false);
       abortControllerRef.current = null;
     }

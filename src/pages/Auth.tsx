@@ -9,6 +9,22 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
+import { z } from 'zod';
+
+const signInSchema = z.object({
+  email: z.string().trim().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+const signUpSchema = z.object({
+  email: z.string().trim().email('Invalid email address').max(255, 'Email too long'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(72, 'Password too long'),
+  confirmPassword: z.string(),
+  displayName: z.string().trim().max(100, 'Display name too long').optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -31,10 +47,19 @@ export default function Auth() {
     setLoading(true);
     setError('');
 
-    const { error } = await signIn(email, password);
-    
-    if (error) {
-      setError(error.message);
+    try {
+      const validated = signInSchema.parse({ email: email.trim(), password });
+      const { error } = await signIn(validated.email, validated.password);
+      
+      if (error) {
+        setError(error.message);
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     }
     
     setLoading(false);
@@ -45,28 +70,31 @@ export default function Auth() {
     setLoading(true);
     setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
+    try {
+      const validated = signUpSchema.parse({
+        email: email.trim(),
+        password,
+        confirmPassword,
+        displayName: displayName.trim(),
+      });
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
-      setLoading(false);
-      return;
-    }
-
-    const { error } = await signUp(email, password, {
-      display_name: displayName || email.split('@')[0],
-      username: email.split('@')[0]
-    });
-    
-    if (error) {
-      setError(error.message);
-    } else {
-      setError('');
-      alert('Check your email for verification link!');
+      const { error } = await signUp(validated.email, validated.password, {
+        display_name: validated.displayName || validated.email.split('@')[0],
+        username: validated.email.split('@')[0]
+      });
+      
+      if (error) {
+        setError(error.message);
+      } else {
+        setError('');
+        alert('Check your email for verification link!');
+      }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        setError(err.errors[0].message);
+      } else {
+        setError('An unexpected error occurred');
+      }
     }
     
     setLoading(false);
