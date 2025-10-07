@@ -84,15 +84,19 @@ const CopilotPanel = ({
     }
   }, [messages]);
 
-  // Auto-apply AI responses
+  // Auto-apply AI responses in real-time
   useEffect(() => {
     messages.forEach((message, index) => {
       if (message.role === 'assistant' && !processedMessagesRef.current.has(index)) {
-        processedMessagesRef.current.add(index);
-        parseAndApplyAIResponse(message.content);
+        // Only process complete messages (not streaming in progress)
+        if (!isLoading || index < messages.length - 1) {
+          console.log(`🤖 Processing message ${index}:`, message.content.substring(0, 100));
+          processedMessagesRef.current.add(index);
+          parseAndApplyAIResponse(message.content);
+        }
       }
     });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,13 +117,12 @@ ${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}
 
 User request: ${input}
 
-Instructions: You are an expert coding assistant. Analyze the request and respond intelligently:
-1. For code edits: Provide complete, working code in \`\`\` blocks
-2. To create files: Use "CREATE_FILE: filename.ext" followed by code in \`\`\` blocks
-3. To delete files: Use "DELETE_FILE: filename.ext"
-4. Be concise but thorough. Explain what you're doing briefly.
-5. Auto-fix bugs and optimize code when relevant.
-6. Consider best practices, security, and performance.`;
+RESPOND FORMAT:
+1. Code edit: "[1 sentence what you're doing]\n\`\`\`language\n[complete code]\n\`\`\`"
+2. New file: "CREATE_FILE: filename.ext\n\`\`\`language\n[complete code]\n\`\`\`"
+3. Delete: "DELETE_FILE: filename.ext"
+
+BE BRIEF. Code is AUTO-APPLIED immediately.`;
     }
     
     setInput('');
@@ -138,21 +141,26 @@ Instructions: You are an expert coding assistant. Analyze the request and respon
   };
 
   const parseAndApplyAIResponse = (response: string) => {
+    console.log('🔍 Parsing AI response:', response.substring(0, 200));
+    
     // Auto-create files
     if (response.includes('CREATE_FILE:')) {
       const match = response.match(/CREATE_FILE:\s*(\S+)/);
       if (match) {
         const filename = match[1];
+        console.log('📝 Creating file:', filename);
         setCurrentOperation(`Creating ${filename}...`);
         const extension = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
-        const content = contentMatch ? contentMatch[1] : '// New file\n';
+        const content = contentMatch ? contentMatch[1].trim() : '// New file\n';
+        console.log('✅ File content length:', content.length);
         onCreateFile(filename, content, extension);
         toast({
           title: '✓ File created',
           description: `Created ${filename}`,
         });
-        setTimeout(() => setCurrentOperation(null), 2000);
+        setTimeout(() => setCurrentOperation(null), 1500);
+        return;
       }
     }
     
@@ -160,26 +168,30 @@ Instructions: You are an expert coding assistant. Analyze the request and respon
     if (response.includes('DELETE_FILE:')) {
       const match = response.match(/DELETE_FILE:\s*(\S+)/);
       if (match) {
+        console.log('🗑️ Deleting file:', match[1]);
         setCurrentOperation(`Deleting ${match[1]}...`);
         onDeleteFile(match[1]);
         toast({
           title: '✓ File deleted',
           description: `Deleted ${match[1]}`,
         });
-        setTimeout(() => setCurrentOperation(null), 2000);
+        setTimeout(() => setCurrentOperation(null), 1500);
+        return;
       }
     }
     
-    // Auto-apply code changes
+    // Auto-apply code changes to active file
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
-    if (codeMatch && activeFile) {
+    if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
+      const newContent = codeMatch[1].trim();
+      console.log('✏️ Applying code to:', activeFile, 'Length:', newContent.length);
       setCurrentOperation(`Editing ${activeFile}...`);
-      onUpdateFile(codeMatch[1]);
+      onUpdateFile(newContent);
       toast({
-        title: '✓ Code applied',
-        description: 'Changes applied and saved automatically',
+        title: '✓ Code applied & saved',
+        description: `Updated ${activeFile}`,
       });
-      setTimeout(() => setCurrentOperation(null), 2000);
+      setTimeout(() => setCurrentOperation(null), 1500);
     }
   };
 
@@ -267,25 +279,28 @@ Instructions: You are an expert coding assistant. Analyze the request and respon
             let operationBadge = null;
             
             if (message.role === "assistant") {
+              // Extract and show file operations
               if (message.content.includes('CREATE_FILE:')) {
                 const match = message.content.match(/CREATE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-green-500">Creating {match[1]}</Badge>;
-                  displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/, '');
+                  operationBadge = <Badge className="mb-2 bg-green-500 text-white">✓ Created {match[1]}</Badge>;
+                  displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/, '').trim();
                 }
               }
               if (message.content.includes('DELETE_FILE:')) {
                 const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-red-500">Deleting {match[1]}</Badge>;
-                  displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '');
+                  operationBadge = <Badge className="mb-2 bg-red-500 text-white">✓ Deleted {match[1]}</Badge>;
+                  displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '').trim();
                 }
               }
-              // Hide code blocks from display but show operation
+              // Clean up code blocks - only show description
               if (displayContent.includes('```')) {
                 const beforeCode = displayContent.split('```')[0].trim();
-                operationBadge = operationBadge || <Badge className="mb-2 bg-blue-500">Editing {activeFile}</Badge>;
-                displayContent = beforeCode || "Code changes applied";
+                if (!operationBadge) {
+                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white">✓ Updated {activeFile}</Badge>;
+                }
+                displayContent = beforeCode || "✓ Changes applied successfully";
               }
             }
             
