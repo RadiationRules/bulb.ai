@@ -76,6 +76,7 @@ const CopilotPanel = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -112,9 +113,13 @@ ${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}
 
 User request: ${input}
 
-Respond with code changes wrapped in \`\`\` blocks. For file operations use:
-- CREATE_FILE: filename.ext (then provide content)
-- DELETE_FILE: filename.ext`;
+Instructions: You are an expert coding assistant. Analyze the request and respond intelligently:
+1. For code edits: Provide complete, working code in \`\`\` blocks
+2. To create files: Use "CREATE_FILE: filename.ext" followed by code in \`\`\` blocks
+3. To delete files: Use "DELETE_FILE: filename.ext"
+4. Be concise but thorough. Explain what you're doing briefly.
+5. Auto-fix bugs and optimize code when relevant.
+6. Consider best practices, security, and performance.`;
     }
     
     setInput('');
@@ -138,6 +143,7 @@ Respond with code changes wrapped in \`\`\` blocks. For file operations use:
       const match = response.match(/CREATE_FILE:\s*(\S+)/);
       if (match) {
         const filename = match[1];
+        setCurrentOperation(`Creating ${filename}...`);
         const extension = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1] : '// New file\n';
@@ -146,6 +152,7 @@ Respond with code changes wrapped in \`\`\` blocks. For file operations use:
           title: '✓ File created',
           description: `Created ${filename}`,
         });
+        setTimeout(() => setCurrentOperation(null), 2000);
       }
     }
     
@@ -153,22 +160,26 @@ Respond with code changes wrapped in \`\`\` blocks. For file operations use:
     if (response.includes('DELETE_FILE:')) {
       const match = response.match(/DELETE_FILE:\s*(\S+)/);
       if (match) {
+        setCurrentOperation(`Deleting ${match[1]}...`);
         onDeleteFile(match[1]);
         toast({
           title: '✓ File deleted',
           description: `Deleted ${match[1]}`,
         });
+        setTimeout(() => setCurrentOperation(null), 2000);
       }
     }
     
     // Auto-apply code changes
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
     if (codeMatch && activeFile) {
+      setCurrentOperation(`Editing ${activeFile}...`);
       onUpdateFile(codeMatch[1]);
       toast({
         title: '✓ Code applied',
         description: 'Changes applied and saved automatically',
       });
+      setTimeout(() => setCurrentOperation(null), 2000);
     }
   };
 
@@ -250,46 +261,84 @@ Respond with code changes wrapped in \`\`\` blocks. For file operations use:
             </div>
           )}
           
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex gap-4 animate-fade-in",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-5 h-5 text-white" />
+          {messages.map((message, index) => {
+            // Extract operation info from assistant messages
+            let displayContent = message.content;
+            let operationBadge = null;
+            
+            if (message.role === "assistant") {
+              if (message.content.includes('CREATE_FILE:')) {
+                const match = message.content.match(/CREATE_FILE:\s*(\S+)/);
+                if (match) {
+                  operationBadge = <Badge className="mb-2 bg-green-500">Creating {match[1]}</Badge>;
+                  displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/, '');
+                }
+              }
+              if (message.content.includes('DELETE_FILE:')) {
+                const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
+                if (match) {
+                  operationBadge = <Badge className="mb-2 bg-red-500">Deleting {match[1]}</Badge>;
+                  displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '');
+                }
+              }
+              // Hide code blocks from display but show operation
+              if (displayContent.includes('```')) {
+                const beforeCode = displayContent.split('```')[0].trim();
+                operationBadge = operationBadge || <Badge className="mb-2 bg-blue-500">Editing {activeFile}</Badge>;
+                displayContent = beforeCode || "Code changes applied";
+              }
+            }
+            
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "flex gap-4 animate-fade-in",
+                  message.role === "user" ? "justify-end" : "justify-start"
+                )}
+              >
+                {message.role === "assistant" && (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                )}
+                <div className="flex-1 max-w-[85%]">
+                  {operationBadge}
+                  <div
+                    className={cn(
+                      "rounded-2xl px-5 py-3 shadow-sm",
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground ml-auto"
+                        : "bg-card border"
+                    )}
+                  >
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
+                  </div>
                 </div>
-              )}
-              <div className="flex-1 max-w-[85%]">
-                <div
-                  className={cn(
-                    "rounded-2xl px-5 py-3 shadow-sm",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground ml-auto"
-                      : "bg-card border"
-                  )}
-                >
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
-                </div>
+                {message.role === "user" && (
+                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary-foreground font-semibold text-sm">You</span>
+                  </div>
+                )}
               </div>
-              {message.role === "user" && (
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary-foreground font-semibold text-sm">You</span>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-4 animate-fade-in">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
                 <Bot className="w-5 h-5 text-white" />
               </div>
-              <div className="rounded-2xl px-5 py-3 bg-card border shadow-sm">
-                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <div className="flex flex-col gap-2">
+                {currentOperation && (
+                  <Badge className="bg-blue-500 animate-pulse">
+                    {currentOperation}
+                  </Badge>
+                )}
+                <div className="rounded-2xl px-5 py-3 bg-card border shadow-sm flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                </div>
               </div>
             </div>
           )}
@@ -359,7 +408,10 @@ export default function Workspace() {
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Wait for auth to finish loading before redirecting
+    if (loading) return;
+    
+    if (!user) {
       navigate('/auth');
       return;
     }
