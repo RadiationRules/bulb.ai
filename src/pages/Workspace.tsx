@@ -31,7 +31,10 @@ import {
   Bot,
   Send,
   Loader2,
-  X
+  X,
+  Code,
+  Monitor,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -301,13 +304,28 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                   displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '').trim();
                 }
               }
-              // Clean up code blocks - only show description
+              // Clean up code blocks - show description with code indicator
               if (displayContent.includes('```')) {
                 const beforeCode = displayContent.split('```')[0].trim();
-                if (!operationBadge) {
-                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white animate-scale-in">✓ Updated {activeFile}</Badge>;
+                const codeBlocks = displayContent.match(/```[\s\S]*?```/g);
+                const hasCode = codeBlocks && codeBlocks.length > 0;
+                
+                if (!operationBadge && hasCode) {
+                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white animate-scale-in">
+                    <Code className="w-3 h-3 mr-1 inline" />
+                    Coding {activeFile}
+                  </Badge>;
                 }
-                displayContent = beforeCode || "✓ Changes applied successfully";
+                
+                // Show description + code indicator
+                if (beforeCode) {
+                  displayContent = beforeCode;
+                  if (hasCode) {
+                    displayContent += "\n\n💻 Code generated and applied";
+                  }
+                } else {
+                  displayContent = "✓ Changes applied successfully";
+                }
               }
             }
             
@@ -430,6 +448,8 @@ export default function Workspace() {
   const [projectDescription, setProjectDescription] = useState('');
   const [projectTags, setProjectTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
@@ -922,18 +942,54 @@ h1 {
             <Save className="w-4 h-4 mr-2" />
             {saving ? 'Saving...' : 'Save'}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => {
-            const htmlFile = files.find(f => f.file_path === 'index.html');
-            if (htmlFile) {
-              const blob = new Blob([htmlFile.file_content], { type: 'text/html' });
-              const url = URL.createObjectURL(blob);
-              window.open(url, '_blank');
-            } else {
-              toast({ title: "No HTML file", description: "Create an index.html file to run your project" });
-            }
-          }}>
-            <Play className="w-4 h-4 mr-2" />
-            Run
+          <Button 
+            variant={showPreview ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => {
+              const htmlFile = files.find(f => f.file_path === 'index.html');
+              if (htmlFile) {
+                // Create a complete HTML document with proper asset handling
+                const fullHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+</head>
+<body>
+  ${htmlFile.file_content.replace(/<\/?(?:html|head|body)[^>]*>/gi, '')}
+  <script>
+    // Inject CSS files
+    ${files.filter(f => f.file_path.endsWith('.css')).map(f => 
+      `const style${files.indexOf(f)} = document.createElement('style');
+       style${files.indexOf(f)}.textContent = \`${f.file_content.replace(/`/g, '\\`')}\`;
+       document.head.appendChild(style${files.indexOf(f)});`
+    ).join('\n')}
+    
+    // Inject JS files
+    ${files.filter(f => f.file_path.endsWith('.js')).map(f => 
+      `try { ${f.file_content} } catch(e) { console.error('Error in ${f.file_path}:', e); }`
+    ).join('\n')}
+  </script>
+</body>
+</html>`;
+                
+                const blob = new Blob([fullHtml], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                setPreviewUrl(url);
+                setShowPreview(true);
+                toast({ title: "Preview ready", description: "Your project is now running" });
+              } else {
+                toast({ title: "No HTML file", description: "Create an index.html file to preview your project", variant: "destructive" });
+              }
+            }}
+          >
+            <Monitor className="w-4 h-4 mr-2" />
+            {showPreview ? 'Preview Active' : 'Deploy Preview'}
           </Button>
         </div>
       </div>
@@ -1017,17 +1073,102 @@ h1 {
           
           <ResizableHandle />
           
-          {/* AI Copilot Panel */}
+          {/* Preview or AI Copilot Panel */}
           <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex">
-            <div className="h-full border-l">
-              <CopilotPanel 
-                activeFile={activeFile}
-                fileContent={fileContent}
-                files={files}
-                onUpdateFile={handleCopilotUpdateFile}
-                onCreateFile={handleCopilotCreateFile}
-                onDeleteFile={handleCopilotDeleteFile}
-              />
+            <div className="h-full border-l flex flex-col">
+              {showPreview ? (
+                // Live Preview Panel
+                <div className="h-full flex flex-col bg-background">
+                  <div className="p-4 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+                        <Monitor className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold">Live Preview</h2>
+                        <p className="text-xs text-muted-foreground">Real-time deployment</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          // Refresh preview
+                          const htmlFile = files.find(f => f.file_path === 'index.html');
+                          if (htmlFile) {
+                            const fullHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+</head>
+<body>
+  ${htmlFile.file_content.replace(/<\/?(?:html|head|body)[^>]*>/gi, '')}
+  <script>
+    ${files.filter(f => f.file_path.endsWith('.css')).map(f => 
+      `const style${files.indexOf(f)} = document.createElement('style');
+       style${files.indexOf(f)}.textContent = \`${f.file_content.replace(/`/g, '\\`')}\`;
+       document.head.appendChild(style${files.indexOf(f)});`
+    ).join('\n')}
+    ${files.filter(f => f.file_path.endsWith('.js')).map(f => 
+      `try { ${f.file_content} } catch(e) { console.error('Error in ${f.file_path}:', e); }`
+    ).join('\n')}
+  </script>
+</body>
+</html>`;
+                            const blob = new Blob([fullHtml], { type: 'text/html' });
+                            const url = URL.createObjectURL(blob);
+                            setPreviewUrl(url);
+                            toast({ title: "Preview refreshed" });
+                          }
+                        }}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setShowPreview(false)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-white relative overflow-hidden">
+                    {previewUrl ? (
+                      <iframe
+                        src={previewUrl}
+                        className="w-full h-full border-0"
+                        title="Live Preview"
+                        sandbox="allow-scripts allow-forms allow-modals"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-muted-foreground">
+                        <div className="text-center">
+                          <Monitor className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                          <p>No preview available</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // AI Copilot Panel
+                <CopilotPanel 
+                  activeFile={activeFile}
+                  fileContent={fileContent}
+                  files={files}
+                  onUpdateFile={handleCopilotUpdateFile}
+                  onCreateFile={handleCopilotCreateFile}
+                  onDeleteFile={handleCopilotDeleteFile}
+                />
+              )}
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
