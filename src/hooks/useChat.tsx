@@ -95,6 +95,10 @@ export const useChat = () => {
           }
         }
       }
+
+      // Stream completed successfully
+      setIsLoading(false);
+      abortControllerRef.current = null;
     } catch (error: any) {
       if (error.name !== 'AbortError') {
         if (error instanceof z.ZodError) {

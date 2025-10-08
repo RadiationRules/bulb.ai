@@ -77,6 +77,8 @@ const CopilotPanel = ({
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
   const [currentOperation, setCurrentOperation] = useState<string | null>(null);
+  const [completedOperations, setCompletedOperations] = useState<string[]>([]);
+  const wasLoadingRef = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -97,6 +99,20 @@ const CopilotPanel = ({
       }
     });
   }, [messages, isLoading]);
+
+  // Show completion summary when AI finishes
+  useEffect(() => {
+    if (wasLoadingRef.current && !isLoading && completedOperations.length > 0) {
+      const summary = completedOperations.join(', ');
+      toast({
+        title: '✓ AI finished',
+        description: summary,
+        duration: 4000,
+      });
+      setCompletedOperations([]);
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading, completedOperations]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,16 +166,13 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
         const filename = match[1];
         console.log('📝 Creating file:', filename);
         setCurrentOperation(`Creating ${filename}...`);
+        setCompletedOperations(prev => [...prev, `Created ${filename}`]);
         const extension = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '// New file\n';
         console.log('✅ File content length:', content.length);
         onCreateFile(filename, content, extension);
-        toast({
-          title: '✓ File created',
-          description: `Created ${filename}`,
-        });
-        setTimeout(() => setCurrentOperation(null), 1500);
+        setTimeout(() => setCurrentOperation(null), 1000);
         return;
       }
     }
@@ -170,12 +183,9 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       if (match) {
         console.log('🗑️ Deleting file:', match[1]);
         setCurrentOperation(`Deleting ${match[1]}...`);
+        setCompletedOperations(prev => [...prev, `Deleted ${match[1]}`]);
         onDeleteFile(match[1]);
-        toast({
-          title: '✓ File deleted',
-          description: `Deleted ${match[1]}`,
-        });
-        setTimeout(() => setCurrentOperation(null), 1500);
+        setTimeout(() => setCurrentOperation(null), 1000);
         return;
       }
     }
@@ -186,12 +196,9 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       const newContent = codeMatch[1].trim();
       console.log('✏️ Applying code to:', activeFile, 'Length:', newContent.length);
       setCurrentOperation(`Editing ${activeFile}...`);
+      setCompletedOperations(prev => [...prev, `Updated ${activeFile}`]);
       onUpdateFile(newContent);
-      toast({
-        title: '✓ Code applied & saved',
-        description: `Updated ${activeFile}`,
-      });
-      setTimeout(() => setCurrentOperation(null), 1500);
+      setTimeout(() => setCurrentOperation(null), 1000);
     }
   };
 
@@ -283,14 +290,14 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
               if (message.content.includes('CREATE_FILE:')) {
                 const match = message.content.match(/CREATE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-green-500 text-white">✓ Created {match[1]}</Badge>;
+                  operationBadge = <Badge className="mb-2 bg-green-500 text-white animate-scale-in">✓ Created {match[1]}</Badge>;
                   displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/, '').trim();
                 }
               }
               if (message.content.includes('DELETE_FILE:')) {
                 const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-red-500 text-white">✓ Deleted {match[1]}</Badge>;
+                  operationBadge = <Badge className="mb-2 bg-red-500 text-white animate-scale-in">✓ Deleted {match[1]}</Badge>;
                   displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '').trim();
                 }
               }
@@ -298,7 +305,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
               if (displayContent.includes('```')) {
                 const beforeCode = displayContent.split('```')[0].trim();
                 if (!operationBadge) {
-                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white">✓ Updated {activeFile}</Badge>;
+                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white animate-scale-in">✓ Updated {activeFile}</Badge>;
                 }
                 displayContent = beforeCode || "✓ Changes applied successfully";
               }
@@ -308,12 +315,12 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
               <div
                 key={index}
                 className={cn(
-                  "flex gap-4 animate-fade-in",
+                  "flex gap-4 animate-fade-in-up",
                   message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {message.role === "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-scale-in">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                 )}
@@ -321,7 +328,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                   {operationBadge}
                   <div
                     className={cn(
-                      "rounded-2xl px-5 py-3 shadow-sm",
+                      "rounded-2xl px-5 py-3 shadow-sm transition-all duration-300",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground ml-auto"
                         : "bg-card border"
@@ -331,7 +338,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                   </div>
                 </div>
                 {message.role === "user" && (
-                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0 animate-scale-in">
                     <span className="text-primary-foreground font-semibold text-sm">You</span>
                   </div>
                 )}
@@ -340,19 +347,21 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
           })}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-4 animate-fade-in">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+            <div className="flex gap-4 animate-fade-in-up">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-scale-in">
                 <Bot className="w-5 h-5 text-white" />
               </div>
               <div className="flex flex-col gap-2">
                 {currentOperation && (
-                  <Badge className="bg-blue-500 animate-pulse">
-                    {currentOperation}
+                  <Badge className="bg-blue-500 animate-pulse text-white">
+                    ⚡ {currentOperation}
                   </Badge>
                 )}
-                <div className="rounded-2xl px-5 py-3 bg-card border shadow-sm flex items-center gap-2">
+                <div className="rounded-2xl px-5 py-3 bg-card border shadow-sm flex items-center gap-3 transition-all duration-300">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                  <span className="text-sm text-muted-foreground">
+                    {currentOperation ? 'Applying changes...' : 'Thinking...'}
+                  </span>
                 </div>
               </div>
             </div>
