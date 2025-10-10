@@ -28,6 +28,8 @@ export const useChat = () => {
       // Send full context to AI
       const messagesWithContext = [...messages, { role: 'user' as const, content: userMessage }];
       
+      console.log('📤 Sending message to AI:', userMessage.substring(0, 100));
+      
       const response = await fetch(
         'https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat',
         {
@@ -40,8 +42,16 @@ export const useChat = () => {
         }
       );
 
-      if (!response.ok || !response.body) {
-        throw new Error('Failed to start stream');
+      console.log('📥 Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body received');
       }
 
       const reader = response.body.getReader();
@@ -52,10 +62,14 @@ export const useChat = () => {
 
       // Add empty assistant message that we'll update
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      console.log('🎬 Starting stream...');
 
       while (!streamDone) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('✅ Stream complete');
+          break;
+        }
 
         textBuffer += decoder.decode(value, { stream: true });
 
@@ -71,6 +85,7 @@ export const useChat = () => {
           const jsonStr = line.slice(6).trim();
           if (jsonStr === '[DONE]') {
             streamDone = true;
+            console.log('🏁 Received [DONE] signal');
             break;
           }
 
@@ -89,7 +104,8 @@ export const useChat = () => {
                 return newMessages;
               });
             }
-          } catch {
+          } catch (parseError) {
+            console.warn('⚠️ JSON parse error, buffering:', parseError);
             textBuffer = line + '\n' + textBuffer;
             break;
           }
@@ -97,20 +113,22 @@ export const useChat = () => {
       }
 
       // Stream completed successfully
+      console.log('✅ Stream finished, content length:', assistantContent.length);
       setIsLoading(false);
       abortControllerRef.current = null;
     } catch (error: any) {
+      console.error('❌ Chat error:', error);
       if (error.name !== 'AbortError') {
         if (error instanceof z.ZodError) {
           setMessages(prev => [
             ...prev,
-            { role: 'assistant', content: error.errors[0].message }
+            { role: 'assistant', content: `Validation error: ${error.errors[0].message}` }
           ]);
         } else {
-          console.error('Chat error:', error);
+          const errorMessage = error.message || 'Unknown error occurred';
           setMessages(prev => [
             ...prev,
-            { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }
+            { role: 'assistant', content: `⚠️ Error: ${errorMessage}\n\nPlease try again or rephrase your message.` }
           ]);
         }
       }
