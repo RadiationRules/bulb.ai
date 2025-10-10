@@ -289,18 +289,26 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
             let operationBadge = null;
             
             if (message.role === "assistant") {
-              // Extract and show file operations
+              // Extract and show file operations with enhanced animations
               if (message.content.includes('CREATE_FILE:')) {
                 const match = message.content.match(/CREATE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-green-500 text-white animate-scale-in">✓ Created {match[1]}</Badge>;
+                  operationBadge = (
+                    <Badge className="mb-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white animate-fade-in shadow-lg border-0">
+                      <span className="animate-scale-in inline-block">✨</span> Created {match[1]}
+                    </Badge>
+                  );
                   displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/, '').trim();
                 }
               }
               if (message.content.includes('DELETE_FILE:')) {
                 const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
                 if (match) {
-                  operationBadge = <Badge className="mb-2 bg-red-500 text-white animate-scale-in">✓ Deleted {match[1]}</Badge>;
+                  operationBadge = (
+                    <Badge className="mb-2 bg-gradient-to-r from-red-500 to-rose-600 text-white animate-fade-in shadow-lg border-0">
+                      <span className="animate-scale-in inline-block">🗑️</span> Deleted {match[1]}
+                    </Badge>
+                  );
                   displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/, '').trim();
                 }
               }
@@ -311,17 +319,19 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                 const hasCode = codeBlocks && codeBlocks.length > 0;
                 
                 if (!operationBadge && hasCode) {
-                  operationBadge = <Badge className="mb-2 bg-blue-500 text-white animate-scale-in">
-                    <Code className="w-3 h-3 mr-1 inline" />
-                    Coding {activeFile}
-                  </Badge>;
+                  operationBadge = (
+                    <Badge className="mb-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white animate-fade-in shadow-lg border-0">
+                      <Code className="w-3 h-3 mr-1 inline animate-pulse" />
+                      <span className="animate-scale-in inline-block">Coding {activeFile}</span>
+                    </Badge>
+                  );
                 }
                 
                 // Show description + code indicator
                 if (beforeCode) {
                   displayContent = beforeCode;
                   if (hasCode) {
-                    displayContent += "\n\n💻 Code generated and applied";
+                    displayContent += "\n\n✨ Code generated and applied seamlessly";
                   }
                 } else {
                   displayContent = "✓ Changes applied successfully";
@@ -338,7 +348,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                 )}
               >
                 {message.role === "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-scale-in">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue via-blue-500 to-bulb-glow flex items-center justify-center flex-shrink-0 animate-scale-in shadow-lg hover:shadow-xl transition-shadow">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                 )}
@@ -346,17 +356,17 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                   {operationBadge}
                   <div
                     className={cn(
-                      "rounded-2xl px-5 py-3 shadow-sm transition-all duration-300",
+                      "rounded-2xl px-5 py-3 shadow-md transition-all duration-300 hover:shadow-lg",
                       message.role === "user"
-                        ? "bg-primary text-primary-foreground ml-auto"
-                        : "bg-card border"
+                        ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground ml-auto animate-slide-in-right"
+                        : "bg-gradient-to-br from-card to-card/80 border border-primary/10 backdrop-blur-sm animate-fade-in"
                     )}
                   >
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
                 </div>
                 {message.role === "user" && (
-                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0 animate-scale-in">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center flex-shrink-0 animate-scale-in shadow-lg">
                     <span className="text-primary-foreground font-semibold text-sm">You</span>
                   </div>
                 )}
@@ -366,20 +376,40 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-4 animate-fade-in-up">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-scale-in">
-                <Bot className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-pulse shadow-lg">
+                <Bot className="w-5 h-5 text-white animate-bounce" style={{ animationDuration: '1.5s' }} />
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 flex-1">
                 {currentOperation && (
-                  <Badge className="bg-blue-500 animate-pulse text-white">
+                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 animate-shimmer text-white shadow-lg w-fit">
                     ⚡ {currentOperation}
                   </Badge>
                 )}
-                <div className="rounded-2xl px-5 py-3 bg-card border shadow-sm flex items-center gap-3 transition-all duration-300">
-                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">
-                    {currentOperation ? 'Applying changes...' : 'Thinking...'}
-                  </span>
+                <div className="rounded-2xl px-5 py-4 bg-gradient-to-br from-card to-card/50 border border-primary/20 shadow-lg flex items-center gap-3 transition-all duration-300 animate-scale-in">
+                  <div className="relative">
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    <div className="absolute inset-0 w-5 h-5 bg-primary/20 rounded-full animate-ping"></div>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                      {currentOperation ? (
+                        <>
+                          <span className="animate-pulse">🔧</span>
+                          Applying changes
+                        </>
+                      ) : (
+                        <>
+                          <span className="animate-pulse">💭</span>
+                          AI is thinking
+                        </>
+                      )}
+                    </span>
+                    <div className="flex gap-1 mt-1">
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -943,7 +973,7 @@ h1 {
             {saving ? 'Saving...' : 'Save'}
           </Button>
           <Button 
-            variant={showPreview ? "default" : "outline"} 
+            variant="outline" 
             size="sm" 
             onClick={() => {
               const htmlFile = files.find(f => f.file_path === 'index.html');
@@ -955,7 +985,7 @@ h1 {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview</title>
+  <title>${project?.title || 'Preview'}</title>
   <style>
     body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
   </style>
@@ -980,16 +1010,22 @@ h1 {
                 
                 const blob = new Blob([fullHtml], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
-                setPreviewUrl(url);
-                setShowPreview(true);
-                toast({ title: "Preview ready", description: "Your project is now running" });
+                window.open(url, '_blank');
+                toast({ 
+                  title: "🚀 Site Deployed!", 
+                  description: "Your project opened in a new tab" 
+                });
               } else {
-                toast({ title: "No HTML file", description: "Create an index.html file to preview your project", variant: "destructive" });
+                toast({ 
+                  title: "No HTML file", 
+                  description: "Create an index.html file to preview your project", 
+                  variant: "destructive" 
+                });
               }
             }}
           >
-            <Monitor className="w-4 h-4 mr-2" />
-            {showPreview ? 'Preview Active' : 'Deploy Preview'}
+            <Play className="w-4 h-4 mr-2" />
+            Deploy Live
           </Button>
         </div>
       </div>
@@ -1073,103 +1109,16 @@ h1 {
           
           <ResizableHandle />
           
-          {/* Preview or AI Copilot Panel */}
+          {/* AI Copilot Panel */}
           <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex">
-            <div className="h-full border-l flex flex-col">
-              {showPreview ? (
-                // Live Preview Panel
-                <div className="h-full flex flex-col bg-background">
-                  <div className="p-4 border-b bg-card/50 backdrop-blur-sm flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                        <Monitor className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-bold">Live Preview</h2>
-                        <p className="text-xs text-muted-foreground">Real-time deployment</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          // Refresh preview
-                          const htmlFile = files.find(f => f.file_path === 'index.html');
-                          if (htmlFile) {
-                            const fullHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview</title>
-  <style>
-    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-  </style>
-</head>
-<body>
-  ${htmlFile.file_content.replace(/<\/?(?:html|head|body)[^>]*>/gi, '')}
-  <script>
-    ${files.filter(f => f.file_path.endsWith('.css')).map(f => 
-      `const style${files.indexOf(f)} = document.createElement('style');
-       style${files.indexOf(f)}.textContent = \`${f.file_content.replace(/`/g, '\\`')}\`;
-       document.head.appendChild(style${files.indexOf(f)});`
-    ).join('\n')}
-    ${files.filter(f => f.file_path.endsWith('.js')).map(f => 
-      `try { ${f.file_content} } catch(e) { console.error('Error in ${f.file_path}:', e); }`
-    ).join('\n')}
-  </script>
-</body>
-</html>`;
-                            const blob = new Blob([fullHtml], { type: 'text/html' });
-                            const url = URL.createObjectURL(blob);
-                            setPreviewUrl(url);
-                            toast({ title: "Preview refreshed" });
-                          }
-                        }}
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => setShowPreview(false)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex-1 bg-white relative overflow-hidden">
-                    {previewUrl ? (
-                      <iframe
-                        src={previewUrl}
-                        className="w-full h-full border-0"
-                        title="Live Preview"
-                        sandbox="allow-scripts allow-forms allow-modals"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <div className="text-center">
-                          <Monitor className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                          <p>No preview available</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                // AI Copilot Panel
-                <CopilotPanel 
-                  activeFile={activeFile}
-                  fileContent={fileContent}
-                  files={files}
-                  onUpdateFile={handleCopilotUpdateFile}
-                  onCreateFile={handleCopilotCreateFile}
-                  onDeleteFile={handleCopilotDeleteFile}
-                />
-              )}
-            </div>
+            <CopilotPanel 
+              activeFile={activeFile}
+              fileContent={fileContent}
+              files={files}
+              onUpdateFile={handleCopilotUpdateFile}
+              onCreateFile={handleCopilotCreateFile}
+              onDeleteFile={handleCopilotDeleteFile}
+            />
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
