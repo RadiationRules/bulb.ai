@@ -80,8 +80,6 @@ const CopilotPanel = ({
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
   const [currentOperation, setCurrentOperation] = useState<string | null>(null);
-  const [completedOperations, setCompletedOperations] = useState<string[]>([]);
-  const wasLoadingRef = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -102,20 +100,6 @@ const CopilotPanel = ({
       }
     });
   }, [messages, isLoading]);
-
-  // Show completion summary when AI finishes
-  useEffect(() => {
-    if (wasLoadingRef.current && !isLoading && completedOperations.length > 0) {
-      const summary = completedOperations.join(', ');
-      toast({
-        title: '✓ AI finished',
-        description: summary,
-        duration: 4000,
-      });
-      setCompletedOperations([]);
-    }
-    wasLoadingRef.current = isLoading;
-  }, [isLoading, completedOperations]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,14 +152,22 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       if (match) {
         const filename = match[1];
         console.log('📝 Creating file:', filename);
-        setCurrentOperation(`Creating ${filename}...`);
-        setCompletedOperations(prev => [...prev, `Created ${filename}`]);
+        setCurrentOperation(`Creating ${filename}`);
+        
         const extension = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '// New file\n';
         console.log('✅ File content length:', content.length);
+        
         onCreateFile(filename, content, extension);
-        setTimeout(() => setCurrentOperation(null), 1000);
+        
+        toast({
+          title: '✨ File Created',
+          description: filename,
+          duration: 2000,
+        });
+        
+        setCurrentOperation(null);
         return;
       }
     }
@@ -184,11 +176,19 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
     if (response.includes('DELETE_FILE:')) {
       const match = response.match(/DELETE_FILE:\s*(\S+)/);
       if (match) {
-        console.log('🗑️ Deleting file:', match[1]);
-        setCurrentOperation(`Deleting ${match[1]}...`);
-        setCompletedOperations(prev => [...prev, `Deleted ${match[1]}`]);
-        onDeleteFile(match[1]);
-        setTimeout(() => setCurrentOperation(null), 1000);
+        const filename = match[1];
+        console.log('🗑️ Deleting file:', filename);
+        setCurrentOperation(`Deleting ${filename}`);
+        
+        onDeleteFile(filename);
+        
+        toast({
+          title: '🗑️ File Deleted',
+          description: filename,
+          duration: 2000,
+        });
+        
+        setCurrentOperation(null);
         return;
       }
     }
@@ -198,10 +198,17 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
       console.log('✏️ Applying code to:', activeFile, 'Length:', newContent.length);
-      setCurrentOperation(`Editing ${activeFile}...`);
-      setCompletedOperations(prev => [...prev, `Updated ${activeFile}`]);
+      setCurrentOperation(`Updating ${activeFile}`);
+      
       onUpdateFile(newContent);
-      setTimeout(() => setCurrentOperation(null), 1000);
+      
+      toast({
+        title: '✓ Code Applied',
+        description: activeFile,
+        duration: 2000,
+      });
+      
+      setCurrentOperation(null);
     }
   };
 
