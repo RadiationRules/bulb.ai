@@ -37,6 +37,14 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
 
 interface ProjectFile {
   id: string;
@@ -382,42 +390,15 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
           })}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-4 animate-fade-in-up">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 animate-pulse shadow-lg">
-                <Bot className="w-5 h-5 text-white animate-bounce" style={{ animationDuration: '1.5s' }} />
+            <div className="flex gap-4 animate-fade-in">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
+                <Bot className="w-5 h-5 text-white" />
               </div>
-              <div className="flex flex-col gap-2 flex-1">
-                {currentOperation && (
-                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 animate-shimmer text-white shadow-lg w-fit">
-                    ⚡ {currentOperation}
-                  </Badge>
-                )}
-                <div className="rounded-2xl px-5 py-4 bg-gradient-to-br from-card to-card/50 border border-primary/20 shadow-lg flex items-center gap-3 transition-all duration-300 animate-scale-in">
-                  <div className="relative">
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                    <div className="absolute inset-0 w-5 h-5 bg-primary/20 rounded-full animate-ping"></div>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                      {currentOperation ? (
-                        <>
-                          <span className="animate-pulse">🔧</span>
-                          Applying changes
-                        </>
-                      ) : (
-                        <>
-                          <span className="animate-pulse">💭</span>
-                          AI is thinking
-                        </>
-                      )}
-                    </span>
-                    <div className="flex gap-1 mt-1">
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                    </div>
-                  </div>
-                </div>
+              <div className="rounded-2xl px-5 py-3 bg-gradient-to-br from-card to-card/80 border border-primary/10 shadow-sm flex items-center gap-3">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  {currentOperation || 'AI is working...'}
+                </span>
               </div>
             </div>
           )}
@@ -487,6 +468,10 @@ export default function Workspace() {
   const [newTag, setNewTag] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
@@ -853,6 +838,38 @@ h1 {
     }
   };
 
+  const handleCreateNewFile = () => {
+    if (!newFileName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a file name",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const extension = newFileName.split('.').pop() || 'txt';
+    handleCopilotCreateFile(newFileName, '// New file\n', extension);
+    setNewFileName('');
+    setShowNewFileDialog(false);
+  };
+
+  const handleCreateNewFolder = () => {
+    if (!newFolderName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a folder name",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a .gitkeep file in the folder
+    handleCopilotCreateFile(`${newFolderName}/.gitkeep`, '', 'txt');
+    setNewFolderName('');
+    setShowNewFolderDialog(false);
+  };
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-background">
@@ -1044,11 +1061,28 @@ h1 {
           <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden md:flex">
             <div className="h-full border-r bg-muted/30 flex flex-col">
               <div className="p-3 border-b flex-shrink-0">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="flex items-center gap-2 mb-3">
                   <FolderOpen className="w-4 h-4" />
                   <span className="font-medium">Files</span>
-                  <Button variant="ghost" size="sm" className="ml-auto">
-                    <Plus className="w-3 h-3" />
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs"
+                    onClick={() => setShowNewFileDialog(true)}
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    New
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-xs"
+                    onClick={() => setShowNewFolderDialog(true)}
+                  >
+                    <FolderOpen className="w-3 h-3 mr-1" />
+                    Folder
                   </Button>
                 </div>
               </div>
@@ -1056,13 +1090,16 @@ h1 {
                 {files.map((file) => (
                   <div
                     key={file.file_path}
-                    className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer hover:bg-accent ${
-                      activeFile === file.file_path ? 'bg-accent' : ''
-                    }`}
+                    className={cn(
+                      "group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors",
+                      activeFile === file.file_path 
+                        ? "bg-accent text-accent-foreground" 
+                        : "hover:bg-accent/50"
+                    )}
                     onClick={() => selectFile(file.file_path)}
                   >
                     <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm truncate">{file.file_path}</span>
+                    <span className="text-sm truncate flex-1">{file.file_path}</span>
                   </div>
                 ))}
               </div>
@@ -1153,6 +1190,54 @@ h1 {
       <div className="lg:hidden">
         {/* Mobile preview could be implemented as a modal here */}
       </div>
+
+      {/* New File Dialog */}
+      <Dialog open={showNewFileDialog} onOpenChange={setShowNewFileDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New File</DialogTitle>
+            <DialogDescription>Enter a name for your new file (e.g., index.html, script.js)</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newFileName}
+            onChange={(e) => setNewFileName(e.target.value)}
+            placeholder="filename.ext"
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateNewFile()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewFileDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateNewFile}>
+              Create File
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Folder Dialog */}
+      <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+            <DialogDescription>Enter a name for your new folder</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            placeholder="folder-name"
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateNewFolder()}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewFolderDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateNewFolder}>
+              Create Folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
