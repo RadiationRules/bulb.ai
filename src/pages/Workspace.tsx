@@ -36,6 +36,7 @@ import {
   Monitor,
   RefreshCw
 } from 'lucide-react';
+import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   Dialog, 
@@ -73,7 +74,9 @@ const CopilotPanel = ({
   files,
   onUpdateFile,
   onCreateFile,
-  onDeleteFile 
+  onDeleteFile,
+  codingFile,
+  onCodingFile
 }: { 
   activeFile: string | null;
   fileContent: string;
@@ -81,6 +84,8 @@ const CopilotPanel = ({
   onUpdateFile: (content: string) => void;
   onCreateFile: (path: string, content: string, type: string) => void;
   onDeleteFile: (path: string) => void;
+  codingFile: string | null;
+  onCodingFile: (file: string | null) => void;
 }) => {
   const [input, setInput] = useState('');
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
@@ -161,6 +166,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
         const filename = match[1];
         console.log('📝 Creating file:', filename);
         setCurrentOperation(`Creating ${filename}`);
+        onCodingFile(filename);
         
         const extension = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
@@ -176,23 +182,24 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
         });
         
         setCurrentOperation(null);
+        onCodingFile(null);
         return;
       }
     }
     
-    // Auto-delete files
+    // Auto-delete files - support multiple files
     if (response.includes('DELETE_FILE:')) {
-      const match = response.match(/DELETE_FILE:\s*(\S+)/);
-      if (match) {
-        const filename = match[1];
-        console.log('🗑️ Deleting file:', filename);
-        setCurrentOperation(`Deleting ${filename}`);
+      const matches = response.matchAll(/DELETE_FILE:\s*(\S+)/g);
+      const filenames = Array.from(matches).map(m => m[1]);
+      if (filenames.length > 0) {
+        console.log('🗑️ Deleting files:', filenames);
+        setCurrentOperation(`Deleting ${filenames.length} file(s)`);
         
-        onDeleteFile(filename);
+        filenames.forEach(filename => onDeleteFile(filename));
         
         toast({
-          title: '🗑️ File Deleted',
-          description: filename,
+          title: '🗑️ Files Deleted',
+          description: `${filenames.length} file(s) removed`,
           duration: 2000,
         });
         
@@ -207,6 +214,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       const newContent = codeMatch[1].trim();
       console.log('✏️ Applying code to:', activeFile, 'Length:', newContent.length);
       setCurrentOperation(`Updating ${activeFile}`);
+      onCodingFile(activeFile);
       
       onUpdateFile(newContent);
       
@@ -217,6 +225,7 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       });
       
       setCurrentOperation(null);
+      onCodingFile(null);
     }
   };
 
@@ -336,8 +345,11 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
                 if (!operationBadge && hasCode) {
                   operationBadge = (
                     <Badge className="mb-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white animate-fade-in shadow-lg border-0">
-                      <Code className="w-3 h-3 mr-1 inline animate-pulse" />
-                      <span className="animate-scale-in inline-block">Coding {activeFile}</span>
+                      <Code className="w-3 h-3 mr-1 inline" />
+                      <span className="inline-flex items-center gap-1">
+                        <span className="animate-pulse">⚡</span>
+                        Coding {codingFile || activeFile}
+                      </span>
                     </Badge>
                   );
                 }
@@ -391,14 +403,20 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-4 animate-fade-in">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg animate-pulse">
                 <Bot className="w-5 h-5 text-white" />
               </div>
-              <div className="rounded-2xl px-5 py-3 bg-gradient-to-br from-card to-card/80 border border-primary/10 shadow-sm flex items-center gap-3">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  {currentOperation || 'AI is working...'}
-                </span>
+              <div className="rounded-2xl px-5 py-3 bg-gradient-to-br from-card to-card/80 border border-primary/10 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </div>
+                  <span className="text-sm font-medium text-primary">
+                    {codingFile ? `Coding ${codingFile}...` : currentOperation || 'Thinking...'}
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -472,6 +490,8 @@ export default function Workspace() {
   const [newFileName, setNewFileName] = useState('');
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [codingFile, setCodingFile] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
@@ -848,8 +868,13 @@ h1 {
       return;
     }
     
-    const extension = newFileName.split('.').pop() || 'txt';
-    handleCopilotCreateFile(newFileName, '// New file\n', extension);
+    // If a folder is selected, create file inside it
+    const fileName = selectedFolder && !newFileName.includes('/') 
+      ? `${selectedFolder}/${newFileName}` 
+      : newFileName;
+    
+    const extension = fileName.split('.').pop() || 'txt';
+    handleCopilotCreateFile(fileName, '// New file\n', extension);
     setNewFileName('');
     setShowNewFileDialog(false);
   };
@@ -1087,21 +1112,38 @@ h1 {
                 </div>
               </div>
               <div className="p-2 flex-1 overflow-y-auto">
-                {files.map((file) => (
-                  <div
-                    key={file.file_path}
-                    className={cn(
-                      "group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors",
-                      activeFile === file.file_path 
-                        ? "bg-accent text-accent-foreground" 
-                        : "hover:bg-accent/50"
-                    )}
-                    onClick={() => selectFile(file.file_path)}
-                  >
-                    <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm truncate flex-1">{file.file_path}</span>
-                  </div>
-                ))}
+                <FileTree
+                  files={files}
+                  activeFile={activeFile}
+                  onSelectFile={selectFile}
+                  onCreateFile={(path) => {
+                    const extension = path.split('.').pop() || 'txt';
+                    handleCopilotCreateFile(path, '// New file\n', extension);
+                  }}
+                  onDeleteFiles={(paths) => {
+                    paths.forEach(path => handleCopilotDeleteFile(path));
+                  }}
+                  onRenameFile={(oldPath, newPath) => {
+                    // Implementation for renaming
+                    const file = files.find(f => f.file_path === oldPath);
+                    if (file && project) {
+                      supabase
+                        .from('project_files')
+                        .update({ file_path: newPath })
+                        .eq('id', file.id)
+                        .then(() => {
+                          fetchProject();
+                          toast({ title: 'File renamed', description: `${oldPath} → ${newPath}` });
+                        });
+                    }
+                  }}
+                  onMoveFile={(path, newFolder) => {
+                    // Implementation for moving files
+                    console.log('Move', path, 'to', newFolder);
+                  }}
+                  selectedFolder={selectedFolder}
+                  onSelectFolder={setSelectedFolder}
+                />
               </div>
             </div>
           </ResizablePanel>
@@ -1162,6 +1204,8 @@ h1 {
               onUpdateFile={handleCopilotUpdateFile}
               onCreateFile={handleCopilotCreateFile}
               onDeleteFile={handleCopilotDeleteFile}
+              codingFile={codingFile}
+              onCodingFile={setCodingFile}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
