@@ -1,13 +1,13 @@
-import { useState, useRef, useEffect } from 'react';
-import { File, FolderOpen, Folder, ChevronRight, ChevronDown, MoreHorizontal, Plus, Trash2, Edit, Move } from 'lucide-react';
+import { useState } from 'react';
+import { File, FolderOpen, Folder, ChevronRight, ChevronDown, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface FileNode {
   name: string;
@@ -41,8 +41,6 @@ export const FileTree = ({
 }: FileTreeProps) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['/']));
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [longPressItem, setLongPressItem] = useState<string | null>(null);
-  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [renamingItem, setRenamingItem] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
 
@@ -113,19 +111,6 @@ export const FileTree = ({
     setExpandedFolders(newExpanded);
   };
 
-  const handleLongPressStart = (path: string) => {
-    longPressTimer.current = setTimeout(() => {
-      setLongPressItem(path);
-    }, 2000);
-  };
-
-  const handleLongPressEnd = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  };
-
   const handleDelete = (paths: string[]) => {
     onDeleteFiles(paths);
     setSelectedItems(new Set());
@@ -144,131 +129,103 @@ export const FileTree = ({
     const isExpanded = expandedFolders.has(node.path);
     const isActive = activeFile === node.path;
     const isSelected = selectedItems.has(node.path);
-    const showContextMenu = longPressItem === node.path;
 
     return (
       <div key={node.path}>
-        <ContextMenu>
-          <ContextMenuTrigger>
-            <div
-              className={cn(
-                "group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-all hover:bg-accent/70",
-                isActive && "bg-primary/10 text-primary font-medium",
-                isSelected && "bg-accent",
-                depth > 0 && "ml-4"
+        <div
+          className={cn(
+            "group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-all hover:bg-accent/70",
+            isActive && "bg-primary/10 text-primary font-medium",
+            isSelected && "bg-accent"
+          )}
+          style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          onClick={() => {
+            if (node.type === 'folder') {
+              toggleFolder(node.path);
+              onSelectFolder?.(node.path);
+            } else {
+              onSelectFile(node.path);
+            }
+          }}
+        >
+          {node.type === 'folder' ? (
+            <>
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               )}
-              style={{ paddingLeft: `${depth * 16 + 8}px` }}
-              onClick={() => {
-                if (node.type === 'folder') {
-                  toggleFolder(node.path);
-                  onSelectFolder?.(node.path);
+              {isExpanded ? (
+                <FolderOpen className="w-4 h-4 text-bulb-glow flex-shrink-0" />
+              ) : (
+                <Folder className="w-4 h-4 text-bulb-glow flex-shrink-0" />
+              )}
+            </>
+          ) : (
+            <>
+              <div className="w-4" />
+              <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            </>
+          )}
+          
+          {renamingItem === node.path ? (
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onBlur={() => {
+                if (newName.trim()) {
+                  handleRename(node.path, newName);
                 } else {
-                  onSelectFile(node.path);
+                  setRenamingItem(null);
                 }
               }}
-              onMouseDown={() => handleLongPressStart(node.path)}
-              onMouseUp={handleLongPressEnd}
-              onMouseLeave={handleLongPressEnd}
-              onTouchStart={() => handleLongPressStart(node.path)}
-              onTouchEnd={handleLongPressEnd}
-            >
-              {node.type === 'folder' ? (
-                <>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  )}
-                  {isExpanded ? (
-                    <FolderOpen className="w-4 h-4 text-bulb-glow flex-shrink-0" />
-                  ) : (
-                    <Folder className="w-4 h-4 text-bulb-glow flex-shrink-0" />
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className="w-4" />
-                  <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                </>
-              )}
-              
-              {renamingItem === node.path ? (
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onBlur={() => {
-                    if (newName.trim()) {
-                      handleRename(node.path, newName);
-                    } else {
-                      setRenamingItem(null);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newName.trim()) {
-                      handleRename(node.path, newName);
-                    } else if (e.key === 'Escape') {
-                      setRenamingItem(null);
-                      setNewName('');
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex-1 px-1 py-0 text-sm bg-background border rounded"
-                  autoFocus
-                />
-              ) : (
-                <span className="text-sm truncate flex-1">{node.name}</span>
-              )}
-              
-              <button
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setLongPressItem(node.path);
-                }}
-              >
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newName.trim()) {
+                  handleRename(node.path, newName);
+                } else if (e.key === 'Escape') {
+                  setRenamingItem(null);
+                  setNewName('');
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 px-1 py-0 text-sm bg-background border rounded"
+              autoFocus
+            />
+          ) : (
+            <span className="text-sm truncate flex-1">{node.name}</span>
+          )}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-accent rounded">
                 <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
               </button>
-            </div>
-          </ContextMenuTrigger>
-          
-          <ContextMenuContent className="w-64">
-            {node.type === 'folder' && (
-              <>
-                <ContextMenuItem onClick={() => onCreateFile(`${node.path}/newfile.txt`)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New File in Folder
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-              </>
-            )}
-            <ContextMenuItem 
-              onClick={() => {
-                setRenamingItem(node.path);
-                setNewName(node.name);
-              }}
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Rename
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => handleDelete([node.path])}>
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </ContextMenuItem>
-            {selectedItems.size > 1 && selectedItems.has(node.path) && (
-              <>
-                <ContextMenuSeparator />
-                <ContextMenuItem 
-                  onClick={() => handleDelete(Array.from(selectedItems))}
-                  className="text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete {selectedItems.size} items
-                </ContextMenuItem>
-              </>
-            )}
-          </ContextMenuContent>
-        </ContextMenu>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRenamingItem(node.path);
+                  setNewName(node.name);
+                }}
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete([node.path]);
+                }}
+                className="text-destructive"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {node.type === 'folder' && isExpanded && node.children && (
           <div className="animate-accordion-down">

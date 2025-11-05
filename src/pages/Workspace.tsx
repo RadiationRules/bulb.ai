@@ -34,7 +34,9 @@ import {
   X,
   Code,
   Monitor,
-  RefreshCw
+  RefreshCw,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
@@ -492,6 +494,8 @@ export default function Workspace() {
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [codingFile, setCodingFile] = useState<string | null>(null);
+  const [history, setHistory] = useState<{content: string, file: string}[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
@@ -725,6 +729,29 @@ h1 {
     if (file) {
       setActiveFile(filePath);
       setFileContent(file.file_content);
+      // Save to history
+      setHistory(prev => [...prev.slice(0, historyIndex + 1), { content: file.file_content, file: filePath }]);
+      setHistoryIndex(prev => prev + 1);
+    }
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setFileContent(prevState.content);
+      setActiveFile(prevState.file);
+      setHistoryIndex(historyIndex - 1);
+      toast({ title: "Undone", duration: 1500 });
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setFileContent(nextState.content);
+      setActiveFile(nextState.file);
+      setHistoryIndex(historyIndex + 1);
+      toast({ title: "Redone", duration: 1500 });
     }
   };
 
@@ -822,6 +849,7 @@ h1 {
       toast({
         title: "File deleted",
         description: `${path} has been removed`,
+        duration: 1500
       });
     } else {
       try {
@@ -846,6 +874,7 @@ h1 {
         toast({
           title: "File deleted",
           description: `${path} has been removed`,
+          duration: 1500
         });
       } catch (error) {
         console.error('Error deleting file:', error);
@@ -860,11 +889,12 @@ h1 {
 
   const handleCreateNewFile = () => {
     if (!newFileName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a file name",
-        variant: "destructive"
-      });
+        toast({
+          title: "Error",
+          description: "Please enter a file name",
+          variant: "destructive",
+          duration: 1500
+        });
       return;
     }
     
@@ -1004,15 +1034,37 @@ h1 {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            className={cn(historyIndex <= 0 && "opacity-40")}
+            title="Undo"
+          >
+            <Undo2 className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            className={cn(historyIndex >= history.length - 1 && "opacity-40")}
+            title="Redo"
+          >
+            <Redo2 className="w-4 h-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
           <Button variant="outline" size="sm" onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            toast({ title: "Link copied!", description: "Project link copied to clipboard" });
+            const deployUrl = `https://${profile?.username || 'user'}.bulb.app`;
+            navigator.clipboard.writeText(deployUrl);
+            toast({ title: "Deploy link copied!", description: deployUrl, duration: 1500 });
           }}>
             <Share2 className="w-4 h-4 mr-2" />
             Share
           </Button>
           <Button variant="outline" size="sm" onClick={() => {
-            toast({ title: "Starred!", description: "Project added to favorites" });
+            toast({ title: "Starred!", description: "Added to favorites", duration: 1500 });
           }}>
             <Star className="w-4 h-4 mr-2" />
             Star
@@ -1060,15 +1112,18 @@ h1 {
                 const blob = new Blob([fullHtml], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 window.open(url, '_blank');
+                const deployUrl = `https://${profile?.username || 'workspace'}.bulb.app`;
                 toast({ 
                   title: "🚀 Site Deployed!", 
-                  description: "Your project opened in a new tab" 
+                  description: `Live at ${deployUrl}`,
+                  duration: 1500
                 });
               } else {
                 toast({ 
                   title: "No HTML file", 
-                  description: "Create an index.html file to preview your project", 
-                  variant: "destructive" 
+                  description: "Create an index.html file first", 
+                  variant: "destructive",
+                  duration: 1500
                 });
               }
             }}
@@ -1097,8 +1152,8 @@ h1 {
                     className="h-8 text-xs"
                     onClick={() => setShowNewFileDialog(true)}
                   >
-                    <Plus className="w-3 h-3 mr-1" />
-                    New
+                    <File className="w-3 h-3 mr-1" />
+                    File
                   </Button>
                   <Button 
                     variant="outline" 
