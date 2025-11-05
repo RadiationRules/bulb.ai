@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
+import Editor from '@monaco-editor/react';
 import { 
   Save, 
   Play, 
@@ -466,6 +467,36 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       </div>
     </div>
   );
+};
+
+// Helper function to get Monaco language from file extension
+const getLanguageFromFile = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const languageMap: Record<string, string> = {
+    'js': 'javascript',
+    'jsx': 'javascript',
+    'ts': 'typescript',
+    'tsx': 'typescript',
+    'html': 'html',
+    'css': 'css',
+    'scss': 'scss',
+    'json': 'json',
+    'md': 'markdown',
+    'py': 'python',
+    'java': 'java',
+    'c': 'c',
+    'cpp': 'cpp',
+    'cs': 'csharp',
+    'php': 'php',
+    'rb': 'ruby',
+    'go': 'go',
+    'rs': 'rust',
+    'sql': 'sql',
+    'xml': 'xml',
+    'yaml': 'yaml',
+    'yml': 'yaml',
+  };
+  return languageMap[ext || ''] || 'plaintext';
 };
 
 export default function Workspace() {
@@ -1056,7 +1087,9 @@ h1 {
           </Button>
           <div className="w-px h-6 bg-border mx-1" />
           <Button variant="outline" size="sm" onClick={() => {
-            const deployUrl = `https://${profile?.username || 'user'}.bulb.app`;
+            // Generate realistic deployment URL with random chars
+            const randomId = Math.random().toString(36).substring(2, 10);
+            const deployUrl = `https://bulbai-${randomId}-${profile?.username || 'user'}.vercel.app`;
             navigator.clipboard.writeText(deployUrl);
             toast({ title: "Deploy link copied!", description: deployUrl, duration: 1500 });
           }}>
@@ -1112,7 +1145,9 @@ h1 {
                 const blob = new Blob([fullHtml], { type: 'text/html' });
                 const url = URL.createObjectURL(blob);
                 window.open(url, '_blank');
-                const deployUrl = `https://${profile?.username || 'workspace'}.bulb.app`;
+                // Generate realistic deployment URL with random chars
+                const randomId = Math.random().toString(36).substring(2, 10);
+                const deployUrl = `https://bulbai-${randomId}-${profile?.username || 'workspace'}.vercel.app`;
                 toast({ 
                   title: "🚀 Site Deployed!", 
                   description: `Live at ${deployUrl}`,
@@ -1236,13 +1271,25 @@ h1 {
                 </div>
               </div>
               
-              {/* Code editor */}
+              {/* Code editor with Monaco */}
               <div className="flex-1 overflow-hidden">
-                <Textarea
+                <Editor
+                  height="100%"
+                  language={getLanguageFromFile(activeFile || '')}
                   value={fileContent}
-                  onChange={(e) => setFileContent(e.target.value)}
-                  className="h-full w-full resize-none font-mono text-sm border-0 rounded-none"
-                  placeholder="Start coding..."
+                  onChange={(value) => setFileContent(value || '')}
+                  theme="vs-dark"
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    roundedSelection: false,
+                    scrollBeyondLastLine: false,
+                    readOnly: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
                 />
               </div>
             </div>
