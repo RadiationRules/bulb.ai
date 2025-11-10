@@ -14,6 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useChat } from '@/hooks/useChat';
 import { cn } from '@/lib/utils';
 import Editor from '@monaco-editor/react';
+import { FileSearch } from '@/components/FileSearch';
+import { LoadingScreen } from '@/components/LoadingSpinner';
 import { 
   Save, 
   Play, 
@@ -37,7 +39,10 @@ import {
   Monitor,
   RefreshCw,
   Undo2,
-  Redo2
+  Redo2,
+  Search,
+  Download,
+  Upload
 } from 'lucide-react';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
@@ -527,10 +532,37 @@ export default function Workspace() {
   const [codingFile, setCodingFile] = useState<string | null>(null);
   const [history, setHistory] = useState<{content: string, file: string}[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [showFileSearch, setShowFileSearch] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (activeFile && !isNewProject) {
+          saveFile();
+        }
+      }
+      // Ctrl+P or Cmd+P for file search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setShowFileSearch(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeFile, fileContent, isNewProject]);
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
-    if (loading) return;
+    if (loading) {
+      setPageLoading(true);
+      return;
+    }
     
     if (!user) {
       navigate('/auth');
@@ -539,6 +571,7 @@ export default function Workspace() {
 
     if (projectId === 'new') {
       setIsNewProject(true);
+      setPageLoading(false);
       // Initialize with default files
       const defaultFiles = [
         {
@@ -551,58 +584,58 @@ export default function Workspace() {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My BulbAI Project</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #2563eb; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container { 
+            max-width: 600px;
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 { 
+            color: #2563eb;
+            margin: 0 0 1rem 0;
+        }
+        p {
+            color: #64748b;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to Your New Project!</h1>
-        <p>Start building something amazing with BulbAI.</p>
+        <h1>✨ Welcome to BulbAI</h1>
+        <p>Start building something amazing! This is your blank canvas.</p>
+        <p>Edit this HTML or ask the AI to help you create something wonderful.</p>
     </div>
-    <script src="script.js"></script>
 </body>
 </html>`,
           file_type: 'html'
         },
         {
           id: 'temp-2',
-          file_path: 'script.js',
-          file_content: `// Welcome to your new BulbAI project!
-console.log('Hello from BulbAI!');
+          file_path: 'README.md',
+          file_content: `# My BulbAI Project
 
-// Add your JavaScript code here
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Project loaded successfully!');
-});`,
-          file_type: 'javascript'
-        },
-        {
-          id: 'temp-3',
-          file_path: 'styles.css',
-          file_content: `/* BulbAI Project Styles */
-body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-}
+This is a new project created with BulbAI. 
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
+## About
 
-h1 {
-    color: white;
-    text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 2rem;
-}`,
-          file_type: 'css'
+Describe your project here. This description will be visible to others when you share your project publicly.
+
+## Getting Started
+
+Start editing the files to build your project!`,
+          file_type: 'markdown'
         }
       ];
       setFiles(defaultFiles);
@@ -613,7 +646,70 @@ h1 {
     }
   }, [projectId, user, loading]);
 
+  // Drag and drop file upload
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    
+    for (const file of droppedFiles) {
+      const content = await file.text();
+      const newFile = {
+        id: `temp-${Date.now()}-${Math.random()}`,
+        file_path: file.name,
+        file_content: content,
+        file_type: file.name.split('.').pop() || 'txt'
+      };
+      
+      setFiles(prev => [...prev, newFile]);
+      toast({
+        title: 'File uploaded',
+        description: `${file.name} added to project`,
+        duration: 1500
+      });
+    }
+  };
+
+  // Download project as ZIP
+  const downloadProject = () => {
+    const JSZip = require('jszip');
+    const zip = new JSZip();
+    
+    files.forEach(file => {
+      zip.file(file.file_path, file.file_content);
+    });
+    
+    zip.generateAsync({ type: 'blob' }).then((blob: Blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.title || 'project'}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Project downloaded',
+        description: 'ZIP file saved successfully',
+        duration: 1500
+      });
+    });
+  };
+
   const fetchProject = async () => {
+    setPageLoading(true);
     try {
       const { data: projectData, error: projectError } = await supabase
         .from('projects')
@@ -644,6 +740,8 @@ h1 {
         description: 'Failed to load project',
         variant: 'destructive'
       });
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -956,15 +1054,8 @@ h1 {
     setShowNewFolderDialog(false);
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p>Loading workspace...</p>
-        </div>
-      </div>
-    );
+  if (pageLoading) {
+    return <LoadingScreen message="Loading workspace..." />;
   }
 
   if (isNewProject) {
@@ -1047,14 +1138,19 @@ h1 {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <div 
+      className="h-screen bg-background flex flex-col"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Header */}
-      <div className="border-b bg-card/50 px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+      <div className="border-b bg-card/50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-4 flex-wrap">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="hidden md:flex">
             ← Dashboard
           </Button>
-          <h1 className="font-semibold">{project?.title || 'Workspace'}</h1>
+          <h1 className="font-semibold text-sm md:text-base">{project?.title || 'Workspace'}</h1>
           {project && (
             <div className="flex items-center gap-2">
               <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
@@ -1064,14 +1160,14 @@ h1 {
           )}
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2 flex-wrap">
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className={cn(historyIndex <= 0 && "opacity-40")}
-            title="Undo"
+            className={cn(historyIndex <= 0 && "opacity-40", "hidden sm:flex")}
+            title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-4 h-4" />
           </Button>
@@ -1080,12 +1176,31 @@ h1 {
             size="sm" 
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className={cn(historyIndex >= history.length - 1 && "opacity-40")}
-            title="Redo"
+            className={cn(historyIndex >= history.length - 1 && "opacity-40", "hidden sm:flex")}
+            title="Redo (Ctrl+Y)"
           >
             <Redo2 className="w-4 h-4" />
           </Button>
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setShowFileSearch(true)}
+            title="Search files (Ctrl+P)"
+            className="hidden sm:flex"
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={downloadProject}
+            title="Download project"
+            className="hidden sm:flex"
+          >
+            <Download className="w-4 h-4" />
+          </Button>
+          <div className="w-px h-6 bg-border mx-1 hidden md:block" />
           <Button variant="outline" size="sm" onClick={() => {
             // Generate realistic deployment URL with random chars
             const randomId = Math.random().toString(36).substring(2, 10);
@@ -1093,18 +1208,18 @@ h1 {
             navigator.clipboard.writeText(deployUrl);
             toast({ title: "Deploy link copied!", description: deployUrl, duration: 1500 });
           }}>
-            <Share2 className="w-4 h-4 mr-2" />
-            Share
+            <Share2 className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">Share</span>
           </Button>
           <Button variant="outline" size="sm" onClick={() => {
             toast({ title: "Starred!", description: "Added to favorites", duration: 1500 });
-          }}>
+          }} className="hidden lg:flex">
             <Star className="w-4 h-4 mr-2" />
             Star
           </Button>
-          <Button onClick={saveFile} disabled={saving} size="sm">
-            <Save className="w-4 h-4 mr-2" />
-            {saving ? 'Saving...' : 'Save'}
+          <Button onClick={saveFile} disabled={saving} size="sm" title="Save (Ctrl+S)">
+            <Save className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
+            <span className="hidden md:inline">{saving ? 'Saving...' : 'Save'}</span>
           </Button>
           <Button 
             variant="outline" 
@@ -1384,6 +1499,31 @@ h1 {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Search Modal */}
+      <FileSearch
+        open={showFileSearch}
+        onOpenChange={setShowFileSearch}
+        files={files.map(f => ({ path: f.file_path, type: 'file' as const }))}
+        onSelectFile={(path) => {
+          const file = files.find(f => f.file_path === path);
+          if (file) {
+            setActiveFile(path);
+            setFileContent(file.file_content);
+          }
+        }}
+      />
+
+      {/* Drag and Drop Overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 bg-primary/10 backdrop-blur-sm flex items-center justify-center border-4 border-dashed border-primary">
+          <div className="text-center">
+            <Upload className="h-16 w-16 text-primary mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-foreground">Drop files to upload</h2>
+            <p className="text-muted-foreground mt-2">Files will be added to your project</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

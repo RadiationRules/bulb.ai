@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { File, FolderOpen, Folder, ChevronRight, ChevronDown, MoreHorizontal, Trash2, Edit } from 'lucide-react';
+import { FolderOpen, Folder, ChevronRight, ChevronDown, MoreHorizontal, Trash2, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FileIcon } from './FileIcon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -164,7 +165,7 @@ export const FileTree = ({
           ) : (
             <>
               <div className="w-4" />
-              <File className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              <FileIcon filename={node.name} type="file" className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             </>
           )}
           
