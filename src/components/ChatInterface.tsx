@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, MessageCircle, Minimize2, Send, Loader2, RotateCcw } from "lucide-react";
+import { X, MessageCircle, Minimize2, Send, Loader2, RotateCcw, ImagePlus, Trash2 } from "lucide-react";
 import { BulbIcon } from "./BulbIcon";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
@@ -15,8 +15,10 @@ interface ChatInterfaceProps {
 
 export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: ChatInterfaceProps) => {
   const [input, setInput] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -24,13 +26,32 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
     }
   }, [messages]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result) {
+          setImages(prev => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
     
     const messageToSend = input;
+    const imagesToSend = images;
     setInput("");
-    await sendMessage(messageToSend);
+    setImages([]);
+    await sendMessage(messageToSend, undefined, imagesToSend);
   };
 
   if (!isFullscreen) {
@@ -116,6 +137,13 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
                     : "bg-muted"
                 )}
               >
+                {message.images && message.images.length > 0 && (
+                  <div className="flex gap-2 mb-2 flex-wrap">
+                    {message.images.map((img, i) => (
+                      <img key={i} src={img} alt="Upload" className="max-w-[200px] rounded" />
+                    ))}
+                  </div>
+                )}
                 <p className="whitespace-pre-wrap break-words">{message.content}</p>
               </div>
               {message.role === "user" && (
@@ -141,23 +169,60 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
 
       {/* Input */}
       <div className="border-t border-border bg-card/50 p-4 flex-shrink-0">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask me anything..."
-            disabled={isLoading}
-            className="flex-1"
-          />
-          {isLoading ? (
-            <Button type="button" onClick={stopGeneration} variant="destructive">
-              Stop
-            </Button>
-          ) : (
-            <Button type="submit" disabled={!input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto space-y-2">
+          {images.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {images.map((img, i) => (
+                <div key={i} className="relative">
+                  <img src={img} alt="Upload" className="max-w-[100px] rounded" />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                    onClick={() => removeImage(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
+          <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+            >
+              <ImagePlus className="h-4 w-4" />
+            </Button>
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask me anything..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            {isLoading ? (
+              <Button type="button" onClick={stopGeneration} variant="destructive">
+                Stop
+              </Button>
+            ) : (
+              <Button type="submit" disabled={!input.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </form>
       </div>
     </div>

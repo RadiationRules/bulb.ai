@@ -4,6 +4,7 @@ import { z } from 'zod';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  images?: string[]; // Base64 encoded images
 }
 
 const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
@@ -13,13 +14,17 @@ export const useChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const streamChat = async (userMessage: string, displayMessage?: string) => {
+  const streamChat = async (userMessage: string, displayMessage?: string, images?: string[]) => {
     try {
       // Validate message
       const validatedMessage = messageSchema.parse(userMessage);
       
       // Use displayMessage for UI, userMessage for AI
-      const newUserMessage: Message = { role: 'user', content: displayMessage || validatedMessage };
+      const newUserMessage: Message = { 
+        role: 'user', 
+        content: displayMessage || validatedMessage,
+        images 
+      };
       setMessages(prev => [...prev, newUserMessage]);
       setIsLoading(true);
 
@@ -37,7 +42,10 @@ export const useChat = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ messages: messagesWithContext }),
+          body: JSON.stringify({ 
+            messages: messagesWithContext,
+            images: images || null 
+          }),
           signal: abortControllerRef.current.signal,
         }
       );

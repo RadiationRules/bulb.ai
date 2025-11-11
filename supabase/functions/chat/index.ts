@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, images } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -19,6 +19,20 @@ serve(async (req) => {
     }
 
     console.log('Chat request received with', messages.length, 'messages');
+
+    // Process messages with images if provided
+    const processedMessages = messages.map((msg: any, idx: number) => {
+      if (images && images[idx]) {
+        return {
+          ...msg,
+          content: [
+            { type: "text", text: msg.content },
+            { type: "image_url", image_url: { url: images[idx] } }
+          ]
+        };
+      }
+      return msg;
+    });
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -86,9 +100,11 @@ DELETE_FILE: oldfile1.js
 DELETE_FILE: oldfile2.js
 Files removed.
 
-⚡ SPEED = SUCCESS. Code must work perfectly first try.` 
+⚡ SPEED = SUCCESS. Code must work perfectly first try.
+- Can analyze screenshots and images to understand UI/code
+- Can work with multiple images in context` 
           },
-          ...messages,
+          ...processedMessages,
         ],
         stream: true,
       }),
