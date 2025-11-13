@@ -30,7 +30,7 @@ import {
   Minimize2,
   Maximize2,
   RotateCcw,
-  Terminal,
+  Terminal as TerminalIcon,
   Bot,
   Send,
   Loader2,
@@ -42,8 +42,20 @@ import {
   Redo2,
   Search,
   Download,
-  Upload
+  Upload,
+  Users,
+  UserPlus,
+  GitBranch,
+  Package,
+  Rocket
 } from 'lucide-react';
+import { GitPanel } from '@/components/GitPanel';
+import { CollaborationPanel } from '@/components/CollaborationPanel';
+import { FriendsPanel } from '@/components/FriendsPanel';
+import { DeploymentPanel } from '@/components/DeploymentPanel';
+import { Terminal } from '@/components/Terminal';
+import { EnvironmentVariables } from '@/components/EnvironmentVariables';
+import { PackageManager } from '@/components/PackageManager';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
 import { 
