@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      collaboration_sessions: {
+        Row: {
+          active_file: string | null
+          created_at: string
+          cursor_position: Json | null
+          id: string
+          last_seen: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          active_file?: string | null
+          created_at?: string
+          cursor_position?: Json | null
+          id?: string
+          last_seen?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          active_file?: string | null
+          created_at?: string
+          cursor_position?: Json | null
+          id?: string
+          last_seen?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaboration_sessions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborations: {
         Row: {
           collaborator_id: string
@@ -142,6 +180,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      friendships: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       notifications: {
         Row: {
@@ -282,6 +347,47 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_commits: {
+        Row: {
+          branch: string
+          commit_hash: string
+          commit_message: string
+          created_at: string
+          files_changed: Json | null
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          branch?: string
+          commit_hash: string
+          commit_message: string
+          created_at?: string
+          files_changed?: Json | null
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          branch?: string
+          commit_hash?: string
+          commit_message?: string
+          created_at?: string
+          files_changed?: Json | null
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_commits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -488,6 +594,41 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_activities: {
+        Row: {
+          activity_data: Json | null
+          activity_type: string
+          created_at: string
+          id: string
+          project_id: string | null
+          user_id: string
+        }
+        Insert: {
+          activity_data?: Json | null
+          activity_type: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          user_id: string
+        }
+        Update: {
+          activity_data?: Json | null
+          activity_type?: string
+          created_at?: string
+          id?: string
+          project_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

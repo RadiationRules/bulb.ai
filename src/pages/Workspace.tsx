@@ -53,11 +53,13 @@ import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
 import { FriendsPanel } from '@/components/FriendsPanel';
 import { DeploymentPanel } from '@/components/DeploymentPanel';
+import { ActivityFeed } from '@/components/ActivityFeed';
 import { Terminal } from '@/components/Terminal';
 import { EnvironmentVariables } from '@/components/EnvironmentVariables';
 import { PackageManager } from '@/components/PackageManager';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
+import { useCollaboration } from '@/hooks/useCollaboration';
 import { 
   Dialog, 
   DialogContent, 
@@ -547,6 +549,15 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy'>('copilot');
+  const editorRef = useRef<any>(null);
+
+  // Collaboration
+  const { collaborators, setEditor } = useCollaboration(
+    projectId || '',
+    profile?.id || '',
+    activeFile
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1406,6 +1417,10 @@ Start editing the files to build your project!`,
                   value={fileContent}
                   onChange={(value) => setFileContent(value || '')}
                   theme="vs-dark"
+                  onMount={(editor) => {
+                    editorRef.current = editor;
+                    setEditor(editor);
+                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
@@ -1424,18 +1439,91 @@ Start editing the files to build your project!`,
           
           <ResizableHandle />
           
-          {/* AI Copilot Panel */}
-          <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex">
-            <CopilotPanel 
-              activeFile={activeFile}
-              fileContent={fileContent}
-              files={files}
-              onUpdateFile={handleCopilotUpdateFile}
-              onCreateFile={handleCopilotCreateFile}
-              onDeleteFile={handleCopilotDeleteFile}
-              codingFile={codingFile}
-              onCodingFile={setCodingFile}
-            />
+          {/* Right Panel - Multi-tab */}
+          <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex flex-col">
+            <div className="flex-shrink-0 border-b bg-muted/30">
+              <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)}>
+                <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
+                  <TabsTrigger value="copilot" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Bot className="w-4 h-4 mr-2" />
+                    AI Copilot
+                  </TabsTrigger>
+                  <TabsTrigger value="collab" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Users className="w-4 h-4 mr-2" />
+                    Live
+                  </TabsTrigger>
+                  <TabsTrigger value="activity" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    Activity
+                  </TabsTrigger>
+                  <TabsTrigger value="friends" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Friends
+                  </TabsTrigger>
+                  <TabsTrigger value="dev" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <TerminalIcon className="w-4 h-4 mr-2" />
+                    Dev
+                  </TabsTrigger>
+                  <TabsTrigger value="deploy" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Rocket className="w-4 h-4 mr-2" />
+                    Deploy
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              {rightPanelTab === 'copilot' && (
+                <CopilotPanel
+                  activeFile={activeFile}
+                  fileContent={fileContent}
+                  files={files}
+                  onUpdateFile={handleCopilotUpdateFile}
+                  onCreateFile={handleCopilotCreateFile}
+                  onDeleteFile={handleCopilotDeleteFile}
+                  codingFile={codingFile}
+                  onCodingFile={setCodingFile}
+                />
+              )}
+              {rightPanelTab === 'collab' && project && (
+                <CollaborationPanel
+                  projectId={project.id}
+                  currentUserId={profile?.id || ''}
+                  activeFile={activeFile}
+                />
+              )}
+              {rightPanelTab === 'activity' && profile && (
+                <ActivityFeed userId={profile.id} />
+              )}
+              {rightPanelTab === 'friends' && profile && (
+                <FriendsPanel userId={profile.id} />
+              )}
+              {rightPanelTab === 'dev' && project && (
+                <Tabs defaultValue="terminal" className="flex flex-col h-full">
+                  <TabsList className="w-full justify-start rounded-none">
+                    <TabsTrigger value="terminal">Terminal</TabsTrigger>
+                    <TabsTrigger value="git">Git</TabsTrigger>
+                    <TabsTrigger value="packages">Packages</TabsTrigger>
+                    <TabsTrigger value="env">Environment</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="terminal" className="flex-1 overflow-hidden m-0">
+                    <Terminal onClose={() => {}} />
+                  </TabsContent>
+                  <TabsContent value="git" className="flex-1 overflow-hidden m-0">
+                    <GitPanel projectId={project.id} userId={profile?.id || ''} />
+                  </TabsContent>
+                  <TabsContent value="packages" className="flex-1 overflow-hidden m-0">
+                    <PackageManager projectId={project.id} />
+                  </TabsContent>
+                  <TabsContent value="env" className="flex-1 overflow-hidden m-0">
+                    <EnvironmentVariables projectId={project.id} />
+                  </TabsContent>
+                </Tabs>
+              )}
+              {rightPanelTab === 'deploy' && project && (
+                <DeploymentPanel projectId={project.id} projectName={project.title} />
+              )}
+            </div>
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>

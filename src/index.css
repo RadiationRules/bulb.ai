@@ -293,3 +293,37 @@
     animation: slide-in-right 0.4s ease-out;
   }
 }
+
+/* Real-time Collaboration Cursor Styles */
+.collab-cursor {
+  background-color: transparent !important;
+  border-left: 2px solid hsl(var(--tech-purple)) !important;
+  position: relative;
+  z-index: 1000;
+}
+
+.collab-cursor-inline {
+  background-color: hsl(var(--tech-purple) / 0.2) !important;
+  border-radius: 2px;
+}
+
+.collab-cursor-label::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: -20px;
+  padding: 2px 6px;
+  background: hsl(var(--tech-purple));
+  color: white;
+  font-size: 10px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.collab-glyph {
+  background: hsl(var(--tech-purple) / 0.3);
+  width: 4px !important;
+  border-radius: 2px;
+}
