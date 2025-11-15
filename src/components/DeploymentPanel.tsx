@@ -78,6 +78,22 @@ export function DeploymentPanel({ projectId, projectName }: DeploymentPanelProps
 
       if (deployError) throw deployError;
 
+      // Log activity
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('user_activities')
+          .insert({
+            user_id: user.id,
+            activity_type: 'deployment',
+            project_id: projectId,
+            activity_data: { 
+              message: 'Deployed project',
+              projectName 
+            }
+          });
+      }
+
       toast({
         title: 'Deployment started',
         description: 'Your project is being built and deployed',

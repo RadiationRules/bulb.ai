@@ -77,9 +77,8 @@ export function GitPanel({ projectId, userId, onCommit }: GitPanelProps) {
         files_changed: {},
       });
 
-    setIsCommitting(false);
-
     if (error) {
+      setIsCommitting(false);
       toast({
         title: "Commit failed",
         description: error.message,
@@ -88,6 +87,20 @@ export function GitPanel({ projectId, userId, onCommit }: GitPanelProps) {
       return;
     }
 
+    // Log activity
+    await supabase
+      .from('user_activities')
+      .insert({
+        user_id: userId,
+        activity_type: 'commit',
+        project_id: projectId,
+        activity_data: { 
+          message: commitMessage,
+          branch: currentBranch 
+        }
+      });
+
+    setIsCommitting(false);
     toast({
       title: "Committed successfully",
       description: `Changes committed to ${currentBranch}`,
