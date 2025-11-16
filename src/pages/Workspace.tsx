@@ -60,6 +60,10 @@ import { PackageManager } from '@/components/PackageManager';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
 import { useCollaboration } from '@/hooks/useCollaboration';
+import { NotificationCenter } from '@/components/NotificationCenter';
+import { UserProfileMenu } from '@/components/UserProfileMenu';
+import { CommandPalette } from '@/components/CommandPalette';
+import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { 
   Dialog, 
   DialogContent, 
@@ -551,6 +555,7 @@ export default function Workspace() {
   const [pageLoading, setPageLoading] = useState(true);
   const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy'>('copilot');
   const editorRef = useRef<any>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Collaboration
   const { collaborators, setEditor } = useCollaboration(
@@ -573,6 +578,11 @@ export default function Workspace() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
         setShowFileSearch(true);
+      }
+      // Ctrl+K or Cmd+K for command palette
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(true);
       }
     };
 
@@ -1244,6 +1254,9 @@ Start editing the files to build your project!`,
             <Save className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
             <span className="hidden md:inline">{saving ? 'Saving...' : 'Save'}</span>
           </Button>
+          <div className="w-px h-6 bg-border mx-2 hidden md:block" />
+          {user && <NotificationCenter userId={user.id} />}
+          {user && <UserProfileMenu userId={user.id} />}
           <Button 
             variant="outline" 
             size="sm" 
@@ -1624,6 +1637,28 @@ Start editing the files to build your project!`,
           </div>
         </div>
       )}
+
+      {/* Command Palette */}
+      <CommandPalette
+        open={commandPaletteOpen}
+        onOpenChange={setCommandPaletteOpen}
+        files={files}
+        onSelectFile={(path) => {
+          const file = files.find(f => f.file_path === path);
+          if (file) {
+            setActiveFile(path);
+            setFileContent(file.file_content);
+          }
+        }}
+        onOpenPanel={(panel) => {
+          if (panel === 'git') setRightPanelTab('dev');
+          else if (panel === 'deployment') setRightPanelTab('deploy');
+          else if (panel === 'terminal') setRightPanelTab('dev');
+          else if (panel === 'packages') setRightPanelTab('dev');
+          else if (panel === 'collaboration') setRightPanelTab('collab');
+          else if (panel === 'activity') setRightPanelTab('activity');
+        }}
+      />
     </div>
   );
 }
