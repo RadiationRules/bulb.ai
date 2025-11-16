@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.build-project]
 verify_jwt = true
+
+[functions.code-review]
+verify_jwt = true

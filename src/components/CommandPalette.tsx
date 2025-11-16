@@ -21,6 +21,7 @@ import {
   Package,
   Activity,
   Code,
+  Sparkles,
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -141,6 +142,15 @@ export function CommandPalette({
           >
             <Activity className="mr-2 h-4 w-4" />
             Activity Feed
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onOpenPanel('review');
+              onOpenChange(false);
+            }}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            AI Code Review
           </CommandItem>
         </CommandGroup>
 
