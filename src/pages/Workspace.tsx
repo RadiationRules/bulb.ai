@@ -47,7 +47,8 @@ import {
   UserPlus,
   GitBranch,
   Package,
-  Rocket
+  Rocket,
+  Sparkles
 } from 'lucide-react';
 import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
@@ -64,6 +65,7 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { UserProfileMenu } from '@/components/UserProfileMenu';
 import { CommandPalette } from '@/components/CommandPalette';
 import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
+import { CodeReviewPanel } from '@/components/CodeReviewPanel';
 import { 
   Dialog, 
   DialogContent, 
@@ -553,7 +555,7 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy'>('copilot');
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review'>('copilot');
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
@@ -1481,6 +1483,10 @@ Start editing the files to build your project!`,
                     <Rocket className="w-4 h-4 mr-2" />
                     Deploy
                   </TabsTrigger>
+                  <TabsTrigger value="review" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Review
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -1535,6 +1541,13 @@ Start editing the files to build your project!`,
               )}
               {rightPanelTab === 'deploy' && project && (
                 <DeploymentPanel projectId={project.id} projectName={project.title} />
+              )}
+              {rightPanelTab === 'review' && (
+                <CodeReviewPanel 
+                  fileName={activeFile || 'untitled'} 
+                  fileContent={fileContent} 
+                  language={getLanguageFromFile(activeFile || '')}
+                />
               )}
             </div>
           </ResizablePanel>
@@ -1657,6 +1670,7 @@ Start editing the files to build your project!`,
           else if (panel === 'packages') setRightPanelTab('dev');
           else if (panel === 'collaboration') setRightPanelTab('collab');
           else if (panel === 'activity') setRightPanelTab('activity');
+          else if (panel === 'review') setRightPanelTab('review');
         }}
       />
     </div>
