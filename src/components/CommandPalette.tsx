@@ -22,6 +22,7 @@ import {
   Activity,
   Code,
   Sparkles,
+  TrendingUp,
 } from 'lucide-react';
 
 interface CommandPaletteProps {
@@ -151,6 +152,15 @@ export function CommandPalette({
           >
             <Sparkles className="mr-2 h-4 w-4" />
             AI Code Review
+          </CommandItem>
+          <CommandItem
+            onSelect={() => {
+              onOpenPanel('quality');
+              onOpenChange(false);
+            }}
+          >
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Quality Dashboard
           </CommandItem>
         </CommandGroup>
 
