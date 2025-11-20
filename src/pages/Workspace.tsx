@@ -66,6 +66,7 @@ import { UserProfileMenu } from '@/components/UserProfileMenu';
 import { CommandPalette } from '@/components/CommandPalette';
 import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { CodeReviewPanel } from '@/components/CodeReviewPanel';
+import { QualityDashboard } from '@/components/QualityDashboard';
 import { 
   Dialog, 
   DialogContent, 
@@ -555,9 +556,13 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review'>('copilot');
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review' | 'quality'>('copilot');
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [lintIssues, setLintIssues] = useState([]);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState({ line: 0, column: 0 });
+  const [aiPrompt, setAiPrompt] = useState('');
 
   // Collaboration
   const { collaborators, setEditor } = useCollaboration(
@@ -1487,6 +1492,10 @@ Start editing the files to build your project!`,
                     <Sparkles className="w-4 h-4 mr-2" />
                     Review
                   </TabsTrigger>
+                  <TabsTrigger value="quality" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Code className="w-4 h-4 mr-2" />
+                    Quality
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -1548,6 +1557,9 @@ Start editing the files to build your project!`,
                   fileContent={fileContent} 
                   language={getLanguageFromFile(activeFile || '')}
                 />
+              )}
+              {rightPanelTab === 'quality' && project && (
+                <QualityDashboard projectId={project.id} />
               )}
             </div>
           </ResizablePanel>
