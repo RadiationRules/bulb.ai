@@ -48,7 +48,8 @@ import {
   GitBranch,
   Package,
   Rocket,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
@@ -67,6 +68,9 @@ import { CommandPalette } from '@/components/CommandPalette';
 import { useKeyboardShortcuts } from '@/components/KeyboardShortcuts';
 import { CodeReviewPanel } from '@/components/CodeReviewPanel';
 import { QualityDashboard } from '@/components/QualityDashboard';
+import { DocumentationPanel } from '@/components/DocumentationPanel';
+import { CodePlayground } from '@/components/CodePlayground';
+import { ProfileModal } from '@/components/ProfileModal';
 import { 
   Dialog, 
   DialogContent, 
@@ -556,9 +560,10 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review' | 'quality'>('copilot');
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review' | 'quality' | 'docs' | 'playground'>('copilot');
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [lintIssues, setLintIssues] = useState([]);
   const [showCompletion, setShowCompletion] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ line: 0, column: 0 });
@@ -1496,6 +1501,14 @@ Start editing the files to build your project!`,
                     <Code className="w-4 h-4 mr-2" />
                     Quality
                   </TabsTrigger>
+                  <TabsTrigger value="docs" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Docs
+                  </TabsTrigger>
+                  <TabsTrigger value="playground" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Play className="w-4 h-4 mr-2" />
+                    Playground
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -1560,6 +1573,19 @@ Start editing the files to build your project!`,
               )}
               {rightPanelTab === 'quality' && project && (
                 <QualityDashboard projectId={project.id} />
+              )}
+              {rightPanelTab === 'docs' && (
+                <DocumentationPanel 
+                  code={fileContent}
+                  fileName={activeFile || 'untitled'}
+                  language={getLanguageFromFile(activeFile || '')}
+                />
+              )}
+              {rightPanelTab === 'playground' && (
+                <CodePlayground 
+                  initialCode={fileContent}
+                  language={getLanguageFromFile(activeFile || '')}
+                />
               )}
             </div>
           </ResizablePanel>
@@ -1661,6 +1687,15 @@ Start editing the files to build your project!`,
             <p className="text-muted-foreground mt-2">Files will be added to your project</p>
           </div>
         </div>
+      )}
+
+      {/* Profile Modal */}
+      {profile && (
+        <ProfileModal 
+          open={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          userId={profile.id}
+        />
       )}
 
       {/* Command Palette */}

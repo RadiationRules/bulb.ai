@@ -8,3 +8,18 @@ verify_jwt = true
 
 [functions.code-review]
 verify_jwt = true
+
+[functions.generate-docs]
+verify_jwt = true
+
+[functions.refactor-code]
+verify_jwt = true
+
+[functions.generate-tests]
+verify_jwt = true
+
+[functions.smart-completion]
+verify_jwt = true
+
+[functions.lint-code]
+verify_jwt = true
