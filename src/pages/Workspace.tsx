@@ -54,6 +54,7 @@ import {
 import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
 import { FriendsPanel } from '@/components/FriendsPanel';
+import { CommunityShowcase } from '@/components/CommunityShowcase';
 import { DeploymentPanel } from '@/components/DeploymentPanel';
 import { ActivityFeed } from '@/components/ActivityFeed';
 import { Terminal } from '@/components/Terminal';
@@ -560,7 +561,7 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'dev' | 'deploy' | 'review' | 'quality' | 'docs' | 'playground'>('copilot');
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'community' | 'dev' | 'deploy' | 'review' | 'quality' | 'docs' | 'playground'>('copilot');
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -1485,6 +1486,10 @@ Start editing the files to build your project!`,
                     <UserPlus className="w-4 h-4 mr-2" />
                     Friends
                   </TabsTrigger>
+                  <TabsTrigger value="community" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+                    <Users className="w-4 h-4 mr-2" />
+                    Community
+                  </TabsTrigger>
                   <TabsTrigger value="dev" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
                     <TerminalIcon className="w-4 h-4 mr-2" />
                     Dev
@@ -1536,8 +1541,11 @@ Start editing the files to build your project!`,
               {rightPanelTab === 'activity' && profile && (
                 <ActivityFeed userId={profile.id} />
               )}
-              {rightPanelTab === 'friends' && profile && (
-                <FriendsPanel userId={profile.id} />
+              {rightPanelTab === 'friends' && user && (
+                <FriendsPanel userId={user.id} />
+              )}
+              {rightPanelTab === 'community' && (
+                <CommunityShowcase userId={user?.id} />
               )}
               {rightPanelTab === 'dev' && project && (
                 <Tabs defaultValue="terminal" className="flex flex-col h-full">

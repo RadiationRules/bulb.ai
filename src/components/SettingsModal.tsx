@@ -84,17 +84,17 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
     }
   };
 
-  const handleSave = async () => {
+  // Auto-save settings with debounce
+  const saveSettings = async (showToast = true) => {
     if (!profile) return;
     
-    setIsLoading(true);
     try {
       const { error } = await supabase
         .from('user_preferences')
         .upsert({
           user_id: profile.id,
           theme: theme,
-          notification_settings: { enabled: notifications },
+          notification_settings: { enabled: notifications, animations },
           editor_settings: {
             fontSize: settings.fontSize,
             language: settings.language,
@@ -104,7 +104,8 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
             chatSpeed: chatSpeed[0],
             betaFeatures: settings.betaFeatures,
             performanceMode: settings.performanceMode
-          }
+          },
+          updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
@@ -112,21 +113,40 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
       // Apply theme immediately
       document.documentElement.className = theme === 'dark' ? 'dark' : '';
       
-      toast({
-        title: "Settings Saved",
-        description: "Your preferences have been updated successfully.",
-      });
-      onOpenChange(false);
+      if (showToast) {
+        toast({
+          title: "Settings Saved",
+          description: "Your preferences have been updated.",
+        });
+      }
     } catch (error) {
       console.error('Error saving preferences:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save settings. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsLoading(false);
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: "Failed to save settings.",
+          variant: "destructive"
+        });
+      }
     }
+  };
+
+  // Auto-save when settings change
+  useEffect(() => {
+    if (!profile || !open) return;
+    
+    const timeoutId = setTimeout(() => {
+      saveSettings(false);
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [theme, darkMode, animations, notifications, chatSpeed, settings]);
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    await saveSettings(true);
+    setIsLoading(false);
+    onOpenChange(false);
   };
 
   const handleThemeChange = (newTheme: string) => {

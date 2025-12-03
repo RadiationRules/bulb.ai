@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Github, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 
 const signInSchema = z.object({
@@ -34,6 +36,7 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -100,6 +103,30 @@ export default function Auth() {
     setLoading(false);
   };
 
+  const handleGitHubSignIn = async () => {
+    setGithubLoading(true);
+    setError('');
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          scopes: 'read:user user:email'
+        }
+      });
+
+      if (error) {
+        setError(error.message);
+        setGithubLoading(false);
+      }
+      // If successful, the page will redirect to GitHub
+    } catch (err) {
+      setError('Failed to connect to GitHub');
+      setGithubLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -120,7 +147,31 @@ export default function Auth() {
               Sign in to access your projects and workspace
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* GitHub OAuth Button */}
+            <Button
+              variant="outline"
+              className="w-full h-11 relative"
+              onClick={handleGitHubSignIn}
+              disabled={githubLoading || loading}
+            >
+              {githubLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Github className="h-5 w-5 mr-2" />
+                  Continue with GitHub
+                </>
+              )}
+            </Button>
+
+            <div className="relative">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
+                or continue with email
+              </span>
+            </div>
+
             <Tabs defaultValue="signin" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -163,7 +214,12 @@ export default function Auth() {
                     className="w-full"
                     disabled={loading || !email || !password}
                   >
-                    {loading ? 'Signing In...' : 'Sign In'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Signing In...
+                      </>
+                    ) : 'Sign In'}
                   </Button>
                 </form>
               </TabsContent>
@@ -219,7 +275,12 @@ export default function Auth() {
                     className="w-full"
                     disabled={loading || !email || !password || !confirmPassword}
                   >
-                    {loading ? 'Creating Account...' : 'Create Account'}
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creating Account...
+                      </>
+                    ) : 'Create Account'}
                   </Button>
                 </form>
               </TabsContent>
