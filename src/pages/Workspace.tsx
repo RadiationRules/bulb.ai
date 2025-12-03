@@ -1690,13 +1690,10 @@ Start editing the files to build your project!`,
       )}
 
       {/* Profile Modal */}
-      {profile && (
-        <ProfileModal 
-          open={profileModalOpen}
-          onClose={() => setProfileModalOpen(false)}
-          userId={profile.id}
-        />
-      )}
+      <ProfileModal 
+        open={profileModalOpen}
+        onOpenChange={setProfileModalOpen}
+      />
 
       {/* Command Palette */}
       <CommandPalette
