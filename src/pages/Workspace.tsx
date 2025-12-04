@@ -1570,7 +1570,12 @@ Start editing the files to build your project!`,
                 </Tabs>
               )}
               {rightPanelTab === 'deploy' && project && (
-                <DeploymentPanel projectId={project.id} projectName={project.title} />
+                <DeploymentPanel 
+                  projectId={project.id} 
+                  projectName={project.title}
+                  visibility={project.visibility}
+                  onVisibilityChange={(v) => setProject({ ...project, visibility: v })}
+                />
               )}
               {rightPanelTab === 'review' && (
                 <CodeReviewPanel 

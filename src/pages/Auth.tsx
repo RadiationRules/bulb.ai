@@ -108,21 +108,29 @@ export default function Auth() {
     setError('');
 
     try {
+      // Use the exact site URL configured in Supabase
+      const redirectUrl = window.location.origin;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'github',
         options: {
-          redirectTo: `${window.location.origin}/`,
-          scopes: 'read:user user:email'
+          redirectTo: redirectUrl,
+          scopes: 'read:user user:email repo'
         }
       });
 
       if (error) {
-        setError(error.message);
+        // Check for common OAuth errors
+        if (error.message.includes('redirect_uri')) {
+          setError('GitHub OAuth not configured. Please add this redirect URL to your Supabase Auth settings: ' + redirectUrl);
+        } else {
+          setError(error.message);
+        }
         setGithubLoading(false);
       }
       // If successful, the page will redirect to GitHub
     } catch (err) {
-      setError('Failed to connect to GitHub');
+      setError('Failed to connect to GitHub. Check Supabase Auth settings.');
       setGithubLoading(false);
     }
   };
