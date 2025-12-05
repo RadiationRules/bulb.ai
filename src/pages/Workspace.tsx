@@ -63,6 +63,7 @@ import { PackageManager } from '@/components/PackageManager';
 import { FileTree } from '@/components/FileTree';
 import { useToast } from '@/components/ui/use-toast';
 import { useCollaboration } from '@/hooks/useCollaboration';
+import { PresenceIndicator } from '@/components/PresenceIndicator';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { UserProfileMenu } from '@/components/UserProfileMenu';
 import { CommandPalette } from '@/components/CommandPalette';
@@ -1190,6 +1191,14 @@ Start editing the files to build your project!`,
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Real-time Presence Indicator */}
+      {project && user && (
+        <PresenceIndicator 
+          projectId={project.id} 
+          currentUserId={user.id} 
+        />
+      )}
+
       {/* Header */}
       <div className="border-b bg-card/50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-4 flex-wrap">

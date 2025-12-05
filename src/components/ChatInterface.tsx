@@ -2,10 +2,49 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, MessageCircle, Minimize2, Send, Loader2, RotateCcw, ImagePlus, Trash2 } from "lucide-react";
+import { X, MessageCircle, Minimize2, Send, Loader2, RotateCcw, ImagePlus, Trash2, Sparkles, Zap, Brain } from "lucide-react";
 import { BulbIcon } from "./BulbIcon";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
+import { LiveCodingAnimation } from "./LiveCodingAnimation";
+
+// Code highlighting component for AI responses
+const CodeHighlight = ({ content }: { content: string }) => {
+  // Split content by code blocks
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.startsWith('```')) {
+          const match = part.match(/```(\w+)?\n?([\s\S]*?)```/);
+          const language = match?.[1] || 'code';
+          const code = match?.[2] || part.slice(3, -3);
+          
+          return (
+            <div key={index} className="my-3 rounded-lg overflow-hidden border border-border/50 bg-background/50">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
+                  </div>
+                  <span className="text-xs text-muted-foreground font-mono">{language}</span>
+                </div>
+                <Sparkles className="w-3 h-3 text-yellow-400" />
+              </div>
+              <pre className="p-3 overflow-x-auto text-sm font-mono leading-relaxed">
+                <code>{code.trim()}</code>
+              </pre>
+            </div>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+};
 
 interface ChatInterfaceProps {
   isFullscreen: boolean;
@@ -70,13 +109,22 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm animate-fade-in flex flex-col">
       {/* Header */}
       <div className="border-b border-border bg-card/50 p-4 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center space-x-3">
-          <BulbIcon className="w-8 h-8" animated />
+          <div className="flex items-center space-x-3">
+          <div className="relative">
+            <BulbIcon className="w-8 h-8" animated />
+            <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-400 animate-spin" style={{ animationDuration: '3s' }} />
+          </div>
           <div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
-              BulbAI Assistant
-            </h2>
-            <p className="text-sm text-muted-foreground">Powered by Gemini 2.5 Flash</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-tech-blue via-purple-500 to-bulb-glow bg-clip-text text-transparent animate-pulse">
+                BulbAI Assistant
+              </h2>
+              <Brain className="w-4 h-4 text-purple-400 animate-pulse" />
+            </div>
+            <div className="flex items-center gap-1">
+              <Zap className="w-3 h-3 text-yellow-500" />
+              <p className="text-sm text-muted-foreground">Powered by <span className="text-primary font-semibold">GPT-5</span></p>
+            </div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -120,47 +168,71 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             <div
               key={index}
               className={cn(
-                "flex gap-3 animate-fade-in",
-                message.role === "user" ? "justify-end" : "justify-start"
+                "flex gap-3",
+                message.role === "user" ? "justify-end" : "justify-start",
+                "animate-fade-in"
               )}
+              style={{ animationDelay: `${index * 50}ms` }}
             >
               {message.role === "assistant" && (
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+                <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue via-purple-500 to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
                   <BulbIcon className="w-5 h-5" />
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-tech-blue to-purple-500 opacity-50 animate-pulse" />
                 </div>
               )}
               <div
                 className={cn(
-                  "rounded-lg px-4 py-2 max-w-[80%]",
+                  "rounded-xl px-4 py-3 max-w-[80%] shadow-lg transition-all duration-300 hover:shadow-xl",
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted"
+                    ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
+                    : "bg-gradient-to-br from-muted to-muted/80 border border-border/50"
                 )}
               >
                 {message.images && message.images.length > 0 && (
                   <div className="flex gap-2 mb-2 flex-wrap">
                     {message.images.map((img, i) => (
-                      <img key={i} src={img} alt="Upload" className="max-w-[200px] rounded" />
+                      <img key={i} src={img} alt="Upload" className="max-w-[200px] rounded-lg border border-border/50" />
                     ))}
                   </div>
                 )}
-                <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                <div className="whitespace-pre-wrap break-words">
+                  {message.role === "assistant" ? (
+                    <CodeHighlight content={message.content} />
+                  ) : (
+                    message.content
+                  )}
+                </div>
               </div>
               {message.role === "user" && (
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary-foreground font-semibold text-sm">You</span>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 shadow-lg">
+                  <span className="text-primary-foreground font-bold text-sm">You</span>
                 </div>
               )}
             </div>
           ))}
           
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0">
+            <div className="flex gap-3 animate-fade-in">
+              <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue via-purple-500 to-bulb-glow flex items-center justify-center flex-shrink-0 animate-pulse">
                 <BulbIcon className="w-5 h-5" />
+                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-tech-blue to-purple-500 animate-ping opacity-30" />
               </div>
-              <div className="rounded-lg px-4 py-2 bg-muted">
-                <Loader2 className="w-4 h-4 animate-spin" />
+              <div className="rounded-lg px-4 py-3 bg-gradient-to-r from-muted to-muted/50 border border-border/50">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1">
+                    {[...Array(3)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                        style={{ animationDelay: `${i * 150}ms` }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-muted-foreground animate-pulse">
+                    GPT-5 is thinking...
+                  </span>
+                  <Brain className="w-4 h-4 text-purple-400 animate-spin" style={{ animationDuration: '2s' }} />
+                </div>
               </div>
             </div>
           )}
