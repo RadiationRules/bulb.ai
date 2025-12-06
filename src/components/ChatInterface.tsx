@@ -2,15 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, MessageCircle, Minimize2, Send, Loader2, RotateCcw, ImagePlus, Trash2, Sparkles, Zap, Brain } from "lucide-react";
+import { X, MessageCircle, Minimize2, Send, RotateCcw, ImagePlus, Trash2, Sparkles, Zap, Brain, Code2 } from "lucide-react";
 import { BulbIcon } from "./BulbIcon";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
-import { LiveCodingAnimation } from "./LiveCodingAnimation";
+import { LiveCodeOverlay } from "./LiveCodeOverlay";
 
-// Code highlighting component for AI responses
+// Code highlighting component
 const CodeHighlight = ({ content }: { content: string }) => {
-  // Split content by code blocks
   const parts = content.split(/(```[\s\S]*?```)/g);
   
   return (
@@ -32,7 +31,7 @@ const CodeHighlight = ({ content }: { content: string }) => {
                   </div>
                   <span className="text-xs text-muted-foreground font-mono">{language}</span>
                 </div>
-                <Sparkles className="w-3 h-3 text-yellow-400" />
+                <Code2 className="w-3 h-3 text-primary" />
               </div>
               <pre className="p-3 overflow-x-auto text-sm font-mono leading-relaxed">
                 <code>{code.trim()}</code>
@@ -55,7 +54,7 @@ interface ChatInterfaceProps {
 export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: ChatInterfaceProps) => {
   const [input, setInput] = useState("");
   const [images, setImages] = useState<string[]>([]);
-  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat();
+  const { messages, isLoading, currentFile, sendMessage, clearMessages, stopGeneration } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,74 +92,88 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
     await sendMessage(messageToSend, undefined, imagesToSend);
   };
 
+  // Get current code being generated
+  const getCurrentCode = () => {
+    if (!isLoading || !currentFile) return null;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'assistant') {
+      const codeMatch = lastMessage.content.match(/```[\w]*\n?([\s\S]*?)(?:```|$)/);
+      return codeMatch?.[1] || null;
+    }
+    return null;
+  };
+
   if (!isFullscreen) {
     return (
       <Button
         onClick={onToggleFullscreen}
-        className="fixed bottom-6 right-6 z-50 rounded-full w-14 h-14 tech-gradient shadow-lg button-hover-glow animate-bounce"
-        style={{animationDuration: '2s'}}
+        className="fixed bottom-6 right-6 z-50 rounded-full w-14 h-14 tech-gradient shadow-lg button-hover-glow"
       >
         <MessageCircle className="h-6 w-6" />
       </Button>
     );
   }
 
+  const liveCode = getCurrentCode();
+
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm animate-fade-in flex flex-col">
+      {/* Live Coding Overlay */}
+      {isLoading && currentFile && liveCode && (
+        <LiveCodeOverlay 
+          code={liveCode} 
+          filename={currentFile} 
+          isActive={true}
+          onClose={stopGeneration}
+        />
+      )}
+
       {/* Header */}
       <div className="border-b border-border bg-card/50 p-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3">
           <div className="relative">
             <BulbIcon className="w-8 h-8" animated />
             <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-400 animate-spin" style={{ animationDuration: '3s' }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold bg-gradient-to-r from-tech-blue via-purple-500 to-bulb-glow bg-clip-text text-transparent animate-pulse">
-                BulbAI Assistant
+              <h2 className="text-xl font-bold bg-gradient-to-r from-tech-blue via-purple-500 to-bulb-glow bg-clip-text text-transparent">
+                BulbAI
               </h2>
-              <Brain className="w-4 h-4 text-purple-400 animate-pulse" />
+              {isLoading && currentFile && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded-full animate-pulse">
+                  <Code2 className="w-3 h-3 text-primary" />
+                  <span className="text-xs text-primary font-mono">Coding {currentFile}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <Zap className="w-3 h-3 text-yellow-500" />
-              <p className="text-sm text-muted-foreground">Powered by <span className="text-primary font-semibold">GPT-5</span></p>
+              <p className="text-xs text-muted-foreground">Powered by <span className="text-primary font-semibold">GPT-5</span></p>
             </div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearMessages}
-            title="Clear chat"
-          >
+          <Button variant="ghost" size="sm" onClick={clearMessages} title="Clear chat">
             <RotateCcw className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleFullscreen}
-          >
+          <Button variant="ghost" size="sm" onClick={onToggleFullscreen}>
             <Minimize2 className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-          >
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Chat Messages */}
+      {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-12">
               <BulbIcon className="w-16 h-16 mx-auto mb-4 opacity-50" animated />
-              <h3 className="text-lg font-semibold mb-2">Welcome to BulbAI Assistant</h3>
-              <p className="text-muted-foreground">Ask me anything about coding, projects, or ideas!</p>
+              <h3 className="text-lg font-semibold mb-2">Welcome to BulbAI</h3>
+              <p className="text-muted-foreground">Powered by GPT-5 - Ask me anything!</p>
             </div>
           )}
           
@@ -172,17 +185,15 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
                 message.role === "user" ? "justify-end" : "justify-start",
                 "animate-fade-in"
               )}
-              style={{ animationDelay: `${index * 50}ms` }}
             >
               {message.role === "assistant" && (
                 <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue via-purple-500 to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
                   <BulbIcon className="w-5 h-5" />
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-tech-blue to-purple-500 opacity-50 animate-pulse" />
                 </div>
               )}
               <div
                 className={cn(
-                  "rounded-xl px-4 py-3 max-w-[80%] shadow-lg transition-all duration-300 hover:shadow-xl",
+                  "rounded-xl px-4 py-3 max-w-[80%] shadow-lg",
                   message.role === "user"
                     ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
                     : "bg-gradient-to-br from-muted to-muted/80 border border-border/50"
@@ -215,7 +226,6 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             <div className="flex gap-3 animate-fade-in">
               <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue via-purple-500 to-bulb-glow flex items-center justify-center flex-shrink-0 animate-pulse">
                 <BulbIcon className="w-5 h-5" />
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-tech-blue to-purple-500 animate-ping opacity-30" />
               </div>
               <div className="rounded-lg px-4 py-3 bg-gradient-to-r from-muted to-muted/50 border border-border/50">
                 <div className="flex items-center gap-3">
@@ -228,9 +238,7 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
                       />
                     ))}
                   </div>
-                  <span className="text-xs text-muted-foreground animate-pulse">
-                    GPT-5 is thinking...
-                  </span>
+                  <span className="text-xs text-muted-foreground">GPT-5 thinking...</span>
                   <Brain className="w-4 h-4 text-purple-400 animate-spin" style={{ animationDuration: '2s' }} />
                 </div>
               </div>
@@ -281,7 +289,7 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask me anything..."
+              placeholder="Ask GPT-5 anything..."
               disabled={isLoading}
               className="flex-1"
             />
