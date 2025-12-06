@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Workspace from "./pages/Workspace";
+import Project from "./pages/Project";
+import Collaborate from "./pages/Collaborate";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/project/:projectId" element={<Project />} />
+              <Route path="/project/:projectId/collaborate" element={<Collaborate />} />
               <Route path="/workspace/:projectId" element={<Workspace />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

@@ -73,6 +73,8 @@ import { QualityDashboard } from '@/components/QualityDashboard';
 import { DocumentationPanel } from '@/components/DocumentationPanel';
 import { CodePlayground } from '@/components/CodePlayground';
 import { ProfileModal } from '@/components/ProfileModal';
+import { VoiceInput } from '@/components/VoiceInput';
+import { LiveCodeOverlay } from '@/components/LiveCodeOverlay';
 import { 
   Dialog, 
   DialogContent, 
@@ -461,40 +463,28 @@ BE BRIEF. Code is AUTO-APPLIED immediately.`;
       {/* Input */}
       <div className="p-4 border-t bg-card/50 backdrop-blur-sm flex-shrink-0">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          <div className="flex gap-3">
+          <div className="flex gap-2">
+            <VoiceInput 
+              onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+              disabled={isLoading}
+            />
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask AI to write code, create files, or help with your project..."
+              placeholder="Ask AI to write code, create files, or speak..."
               disabled={isLoading}
-              className="flex-1 h-12 text-sm px-4 rounded-xl shadow-sm"
+              className="flex-1 h-10 text-sm px-4 rounded-lg"
             />
             {isLoading ? (
-              <Button 
-                type="button" 
-                onClick={stopGeneration} 
-                variant="destructive" 
-                size="lg"
-                className="h-12 px-6 rounded-xl"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Stop
+              <Button type="button" onClick={stopGeneration} variant="destructive" className="h-10 px-4 rounded-lg">
+                <X className="h-4 w-4" />
               </Button>
             ) : (
-              <Button 
-                type="submit" 
-                disabled={!input.trim()} 
-                size="lg"
-                className="h-12 px-6 rounded-xl shadow-sm"
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send
+              <Button type="submit" disabled={!input.trim()} className="h-10 px-4 rounded-lg">
+                <Send className="h-4 w-4" />
               </Button>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Tip: Describe what you want to build or fix, and I'll help you code it
-          </p>
         </form>
       </div>
     </div>
@@ -1474,56 +1464,40 @@ Start editing the files to build your project!`,
           
           <ResizableHandle />
           
-          {/* Right Panel - Multi-tab */}
+          {/* Right Panel - Sleek Tabs */}
           <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex flex-col">
-            <div className="flex-shrink-0 border-b bg-muted/30">
+            <div className="flex-shrink-0 border-b bg-gradient-to-r from-card/50 to-muted/30">
               <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)}>
-                <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent">
-                  <TabsTrigger value="copilot" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Bot className="w-4 h-4 mr-2" />
-                    AI Copilot
-                  </TabsTrigger>
-                  <TabsTrigger value="collab" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Users className="w-4 h-4 mr-2" />
-                    Live
-                  </TabsTrigger>
-                  <TabsTrigger value="activity" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <GitBranch className="w-4 h-4 mr-2" />
-                    Activity
-                  </TabsTrigger>
-                  <TabsTrigger value="friends" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Friends
-                  </TabsTrigger>
-                  <TabsTrigger value="community" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Users className="w-4 h-4 mr-2" />
-                    Community
-                  </TabsTrigger>
-                  <TabsTrigger value="dev" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <TerminalIcon className="w-4 h-4 mr-2" />
-                    Dev
-                  </TabsTrigger>
-                  <TabsTrigger value="deploy" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Rocket className="w-4 h-4 mr-2" />
-                    Deploy
-                  </TabsTrigger>
-                  <TabsTrigger value="review" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Review
-                  </TabsTrigger>
-                  <TabsTrigger value="quality" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Code className="w-4 h-4 mr-2" />
-                    Quality
-                  </TabsTrigger>
-                  <TabsTrigger value="docs" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Docs
-                  </TabsTrigger>
-                  <TabsTrigger value="playground" className="rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                    <Play className="w-4 h-4 mr-2" />
-                    Playground
-                  </TabsTrigger>
-                </TabsList>
+                <ScrollArea className="w-full">
+                  <TabsList className="inline-flex h-11 items-center gap-1 rounded-none bg-transparent p-1">
+                    <TabsTrigger value="copilot" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Bot className="w-3.5 h-3.5 mr-1.5" />
+                      AI
+                    </TabsTrigger>
+                    <TabsTrigger value="collab" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Users className="w-3.5 h-3.5 mr-1.5" />
+                      Live
+                    </TabsTrigger>
+                    <TabsTrigger value="dev" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />
+                      Dev
+                    </TabsTrigger>
+                    <TabsTrigger value="deploy" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Rocket className="w-3.5 h-3.5 mr-1.5" />
+                      Deploy
+                    </TabsTrigger>
+                    <TabsTrigger value="review" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                      Review
+                    </TabsTrigger>
+                    <TabsTrigger value="activity" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <GitBranch className="w-3.5 h-3.5" />
+                    </TabsTrigger>
+                    <TabsTrigger value="friends" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <UserPlus className="w-3.5 h-3.5" />
+                    </TabsTrigger>
+                  </TabsList>
+                </ScrollArea>
               </Tabs>
             </div>
 
