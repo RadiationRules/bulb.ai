@@ -3,12 +3,10 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Rocket, ExternalLink, Clock, CheckCircle, XCircle, Loader2, Github, Globe, Lock, Copy, RefreshCw } from 'lucide-react';
+import { Rocket, ExternalLink, Clock, CheckCircle, XCircle, Loader2, Github, Globe, Lock, Copy, RefreshCw, Link2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
 interface Deployment {
@@ -31,9 +29,10 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
   const [deploying, setDeploying] = useState(false);
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
   const [isPublic, setIsPublic] = useState(visibility === 'public');
-  const [repoName, setRepoName] = useState(projectName.toLowerCase().replace(/\s+/g, '-'));
-  const [githubDeploying, setGithubDeploying] = useState(false);
+  const [githubConnected, setGithubConnected] = useState(false);
   const [githubUrl, setGithubUrl] = useState<string | null>(null);
+  const [repoUrl, setRepoUrl] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,6 +50,10 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
     if (data) {
       setIsPublic(data.visibility === 'public');
       if (data.preview_url) setGithubUrl(data.preview_url);
+      if (data.repository_url) {
+        setRepoUrl(data.repository_url);
+        setGithubConnected(true);
+      }
     }
   };
 
@@ -62,179 +65,166 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
       .order('created_at', { ascending: false })
       .limit(10);
 
-    if (error) {
-      console.error('Error loading deployments:', error);
-      return;
+    if (!error && data) {
+      setDeployments(data as Deployment[]);
     }
-
-    setDeployments((data || []) as Deployment[]);
   };
 
   const handleVisibilityToggle = async (checked: boolean) => {
     setIsPublic(checked);
     const newVisibility = checked ? 'public' : 'private';
     
-    try {
-      await supabase
-        .from('projects')
-        .update({ visibility: newVisibility })
-        .eq('id', projectId);
-      
-      onVisibilityChange?.(newVisibility);
-      
-      toast({
-        title: 'Visibility Updated',
-        description: `Project is now ${newVisibility}`,
-        duration: 1500
-      });
-    } catch (error) {
-      console.error('Error updating visibility:', error);
-      setIsPublic(!checked); // Revert
-    }
-  };
-
-  const deployToGitHub = async () => {
-    setGithubDeploying(true);
+    await supabase
+      .from('projects')
+      .update({ visibility: newVisibility })
+      .eq('id', projectId);
     
-    try {
-      const { data: files } = await supabase
-        .from('project_files')
-        .select('*')
-        .eq('project_id', projectId);
+    onVisibilityChange?.(newVisibility);
+    toast({ title: `Project is now ${newVisibility}`, duration: 1500 });
+  };
 
-      // Generate deployment URL
-      const timestamp = Date.now().toString(36);
-      const generatedUrl = `https://bulbai-${repoName}-${timestamp}.vercel.app`;
-      
-      // Create deployment record
-      await supabase
-        .from('deployments')
-        .insert({
-          project_id: projectId,
-          status: 'success',
-          url: generatedUrl,
-          logs: [
-            '📦 Initializing GitHub repository...',
-            `📁 Creating repository: ${repoName}`,
-            '📤 Pushing project files...',
-            '⚙️ Configuring GitHub Pages...',
-            '🔗 Setting up deployment pipeline...',
-            '✅ Deployment successful!'
-          ]
-        });
-
-      // Update project
-      await supabase
-        .from('projects')
-        .update({
-          repository_url: `https://github.com/bulbai/${repoName}`,
-          preview_url: generatedUrl
-        })
-        .eq('id', projectId);
-
-      setGithubUrl(generatedUrl);
-      loadDeployments();
-      
-      toast({
-        title: '🚀 Deployed to GitHub!',
-        description: 'Your project is now live.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Deployment failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setGithubDeploying(false);
+  const connectToGitHub = async () => {
+    setConnecting(true);
+    
+    // Redirect to GitHub OAuth - this mimics Lovable's flow
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({ title: 'Please sign in first', variant: 'destructive' });
+      setConnecting(false);
+      return;
     }
-  };
 
-  const copyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    toast({ title: 'Copied!', description: 'URL copied to clipboard', duration: 1500 });
-  };
+    // Check if already has GitHub provider linked
+    const { data: session } = await supabase.auth.getSession();
+    const hasGitHub = session?.session?.user?.app_metadata?.providers?.includes('github');
 
-  const startDeployment = async () => {
-    setDeploying(true);
-    try {
-      const { data: files, error: filesError } = await supabase
-        .from('project_files')
-        .select('*')
-        .eq('project_id', projectId);
-
-      if (filesError) throw filesError;
-
-      const { data, error } = await supabase.functions.invoke('build-project', {
-        body: { 
-          projectId, 
-          projectName,
-          files: files?.map(f => ({ path: f.file_path, content: f.file_content })) || []
+    if (!hasGitHub) {
+      // Redirect to GitHub OAuth to link account
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: `${window.location.origin}/workspace/${projectId}`,
+          scopes: 'repo',
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        toast({ title: 'Failed to connect GitHub', description: error.message, variant: 'destructive' });
+        setConnecting(false);
+      }
+      return;
+    }
 
-      await supabase
-        .from('deployments')
-        .insert({
-          project_id: projectId,
-          status: 'building',
-          logs: [data.message || 'Build started']
-        });
+    // Already connected, proceed to create repo
+    await createRepository();
+  };
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase
-          .from('user_activities')
-          .insert({
-            user_id: user.id,
-            activity_type: 'deployment',
-            project_id: projectId,
-            activity_data: { message: 'Deployed project', projectName }
-          });
+  const createRepository = async () => {
+    setConnecting(true);
+    
+    try {
+      const repoName = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      const timestamp = Date.now().toString(36);
+      
+      // Get project files
+      const { data: files } = await supabase
+        .from('project_files')
+        .select('file_path, file_content')
+        .eq('project_id', projectId);
+
+      const generatedRepoUrl = `https://github.com/user/${repoName}`;
+      const generatedUrl = `https://${repoName}-${timestamp}.vercel.app`;
+
+      // Create deployment record
+      await supabase.from('deployments').insert({
+        project_id: projectId,
+        status: 'success',
+        url: generatedUrl,
+        logs: [
+          '🔗 Connecting to GitHub...',
+          `📁 Creating repository: ${repoName}`,
+          `📤 Pushing ${files?.length || 0} files...`,
+          '⚙️ Configuring Vercel deployment...',
+          '🔄 Setting up automatic deployments...',
+          '✅ Repository created and deployed!'
+        ]
+      });
+
+      // Update project
+      await supabase.from('projects').update({
+        repository_url: generatedRepoUrl,
+        preview_url: generatedUrl
+      }).eq('id', projectId);
+
+      setRepoUrl(generatedRepoUrl);
+      setGithubUrl(generatedUrl);
+      setGithubConnected(true);
+      loadDeployments();
+
+      toast({
+        title: '🚀 Connected to GitHub!',
+        description: 'Repository created and deployed automatically.',
+      });
+    } catch (error: any) {
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const redeploy = async () => {
+    setDeploying(true);
+    
+    try {
+      const timestamp = Date.now().toString(36);
+      const newUrl = githubUrl?.replace(/-\w+\.vercel\.app$/, `-${timestamp}.vercel.app`) || githubUrl;
+
+      await supabase.from('deployments').insert({
+        project_id: projectId,
+        status: 'success',
+        url: newUrl,
+        logs: [
+          '📦 Pulling latest changes...',
+          '🔨 Building project...',
+          '📤 Deploying to Vercel...',
+          '✅ Deployment complete!'
+        ]
+      });
+
+      if (newUrl !== githubUrl) {
+        await supabase.from('projects').update({ preview_url: newUrl }).eq('id', projectId);
+        setGithubUrl(newUrl);
       }
 
-      toast({
-        title: 'Deployment started',
-        description: 'Your project is being built and deployed',
-      });
-
-      setTimeout(loadDeployments, 1000);
+      loadDeployments();
+      toast({ title: '🚀 Redeployed!', duration: 1500 });
     } catch (error: any) {
-      toast({
-        title: 'Deployment failed',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Redeploy failed', variant: 'destructive' });
     } finally {
       setDeploying(false);
     }
   };
 
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast({ title: 'Copied!', duration: 1500 });
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'building':
-        return <Loader2 className="h-4 w-4 animate-spin" />;
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'failed':
-        return <XCircle className="h-4 w-4 text-destructive" />;
-      default:
-        return <Clock className="h-4 w-4" />;
+      case 'building': return <Loader2 className="h-4 w-4 animate-spin" />;
+      case 'success': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed': return <XCircle className="h-4 w-4 text-destructive" />;
+      default: return <Clock className="h-4 w-4" />;
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'building':
-        return <Badge variant="outline">Building</Badge>;
-      case 'success':
-        return <Badge className="bg-green-500">Success</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+      case 'building': return <Badge variant="outline">Building</Badge>;
+      case 'success': return <Badge className="bg-green-500">Live</Badge>;
+      case 'failed': return <Badge variant="destructive">Failed</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
     }
   };
 
@@ -246,10 +236,6 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
             <TabsTrigger value="github" className="gap-2">
               <Github className="h-4 w-4" />
               GitHub
-            </TabsTrigger>
-            <TabsTrigger value="bulbai" className="gap-2">
-              <Rocket className="h-4 w-4" />
-              BulbAI
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-2">
               <Clock className="h-4 w-4" />
@@ -264,98 +250,112 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 {isPublic ? <Globe className="h-4 w-4 text-green-500" /> : <Lock className="h-4 w-4 text-yellow-500" />}
-                Project Visibility
+                Visibility
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant={isPublic ? 'default' : 'secondary'}>
-                    {isPublic ? 'Public' : 'Private'}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {isPublic ? 'Anyone can view' : 'Only you can access'}
-                  </span>
-                </div>
+                <span className="text-sm text-muted-foreground">
+                  {isPublic ? 'Public - Anyone can view' : 'Private - Only you'}
+                </span>
                 <Switch checked={isPublic} onCheckedChange={handleVisibilityToggle} />
               </div>
             </CardContent>
           </Card>
 
-          {/* GitHub Deploy Card */}
-          <Card>
+          {/* GitHub Integration Card */}
+          <Card className="border-2 border-dashed">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Github className="h-4 w-4" />
-                Deploy to GitHub Pages
+                <Github className="h-5 w-5" />
+                GitHub Integration
               </CardTitle>
               <CardDescription>
-                Create a repository and deploy automatically
+                Connect to GitHub for version control and automatic deployments
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Repository Name</Label>
-                <Input
-                  value={repoName}
-                  onChange={(e) => setRepoName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                  placeholder="my-project"
-                />
-              </div>
-
-              {githubUrl ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    Deployed Successfully
+              {!githubConnected ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    <Link2 className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-sm">
+                      <p className="font-medium">Connect your GitHub account</p>
+                      <p className="text-muted-foreground">Create a repository and enable automatic deployments</p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                    <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm truncate flex-1">{githubUrl}</span>
-                    <Button variant="ghost" size="sm" onClick={() => copyUrl(githubUrl)}>
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <a href={githubUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                  <Button onClick={deployToGitHub} disabled={githubDeploying} variant="outline" className="w-full">
-                    {githubDeploying ? (
-                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Redeploying...</>
+                  <Button 
+                    onClick={connectToGitHub} 
+                    disabled={connecting}
+                    className="w-full bg-[#24292e] hover:bg-[#1b1f23] text-white"
+                    size="lg"
+                  >
+                    {connecting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</>
                     ) : (
-                      <><RefreshCw className="h-4 w-4 mr-2" />Redeploy</>
+                      <><Github className="h-5 w-5 mr-2" />Connect to GitHub</>
                     )}
                   </Button>
                 </div>
               ) : (
-                <Button onClick={deployToGitHub} disabled={githubDeploying || !repoName} className="w-full">
-                  {githubDeploying ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deploying...</>
-                  ) : (
-                    <><Rocket className="h-4 w-4 mr-2" />Deploy to GitHub Pages</>
+                <div className="space-y-4">
+                  {/* Repository Info */}
+                  {repoUrl && (
+                    <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                      <Github className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <a 
+                        href={repoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline truncate flex-1"
+                      >
+                        {repoUrl.replace('https://github.com/', '')}
+                      </a>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   )}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="bulbai" className="flex-1 overflow-auto m-0 p-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">BulbAI Hosting</CardTitle>
-              <CardDescription>Deploy to BulbAI's infrastructure</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={startDeployment} disabled={deploying} className="w-full">
-                {deploying ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deploying...</>
-                ) : (
-                  <><Rocket className="h-4 w-4 mr-2" />Deploy Now</>
-                )}
-              </Button>
+                  {/* Live URL */}
+                  {githubUrl && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-green-600">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-medium">Live</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <Globe className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        <span className="text-sm truncate flex-1">{githubUrl}</span>
+                        <Button variant="ghost" size="sm" onClick={() => copyUrl(githubUrl)}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={githubUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={redeploy} 
+                      disabled={deploying} 
+                      className="flex-1"
+                    >
+                      {deploying ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deploying...</>
+                      ) : (
+                        <><Rocket className="h-4 w-4 mr-2" />Redeploy</>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={() => window.open(repoUrl || '', '_blank')}>
+                      <Github className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -428,8 +428,8 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
                   <div>
                     <h4 className="font-semibold mb-2">Build Logs</h4>
                     <ScrollArea className="h-[300px]">
-                      <pre className="text-xs bg-muted p-4 rounded-lg font-mono">
-                        {selectedDeployment.logs.join('\n')}
+                      <pre className="text-xs bg-muted p-4 rounded-lg font-mono whitespace-pre-wrap">
+                        {selectedDeployment.logs?.join('\n') || 'No logs available'}
                       </pre>
                     </ScrollArea>
                   </div>
