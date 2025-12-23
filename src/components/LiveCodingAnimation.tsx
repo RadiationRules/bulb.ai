@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { Code2, Sparkles, Zap } from 'lucide-react';
+import { Code2, Sparkles, Zap, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import DOMPurify from 'dompurify';
 
 interface LiveCodingAnimationProps {
   code: string;
@@ -24,7 +26,6 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
 
     setIsTyping(true);
     let charIndex = 0;
-    const lines = code.split('\n');
     
     const typeCode = () => {
       if (charIndex < code.length) {
@@ -38,7 +39,7 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
         
         // Variable speed for more realistic effect
         const char = code[charIndex - 1];
-        let delay = 8; // Base speed
+        let delay = 8;
         if (char === '\n') delay = 50;
         else if (char === ' ') delay = 5;
         else if (char === '{' || char === '}') delay = 30;
@@ -67,7 +68,7 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
 
   return (
     <div className="fixed inset-0 z-50 bg-background/98 backdrop-blur-xl animate-fade-in flex flex-col overflow-hidden">
-      {/* Header with animated effects */}
+      {/* Header */}
       <div className="border-b border-border bg-gradient-to-r from-card via-card/80 to-card p-4">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-3">
@@ -87,7 +88,6 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
             </div>
           </div>
 
-          {/* Progress indicator */}
           <div className="flex items-center gap-3">
             <div className="flex gap-1">
               {[...Array(3)].map((_, i) => (
@@ -107,7 +107,7 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
         </div>
       </div>
 
-      {/* Code display with effects */}
+      {/* Code display */}
       <div 
         ref={containerRef}
         className="flex-1 overflow-auto p-6 bg-gradient-to-b from-background to-card/30"
@@ -128,12 +128,10 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
                   index === currentLine && isTyping && "text-primary"
                 )}
               >
-                {/* Line number */}
                 <span className="w-12 text-right pr-4 text-muted-foreground/50 select-none">
                   {index + 1}
                 </span>
                 
-                {/* Code content with syntax highlighting simulation */}
                 <span className={cn(
                   "flex-1",
                   index === currentLine && isTyping && "animate-pulse"
@@ -141,7 +139,6 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
                   {highlightSyntax(line)}
                 </span>
                 
-                {/* Cursor on current line */}
                 {index === currentLine && isTyping && (
                   <span className="inline-block w-2 h-5 bg-primary animate-pulse ml-0.5" />
                 )}
@@ -171,7 +168,7 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
         </div>
       </div>
 
-      {/* Footer with stats */}
+      {/* Footer */}
       <div className="border-t border-border bg-card/50 p-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
@@ -193,15 +190,23 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
   );
 }
 
-// Simple syntax highlighting
+// Secure syntax highlighting with DOMPurify
 function highlightSyntax(line: string): React.ReactNode {
+  // Escape HTML first to prevent XSS
+  const escaped = line
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
   const keywords = ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'import', 'export', 'from', 'default', 'async', 'await', 'class', 'extends', 'new', 'this', 'try', 'catch', 'throw'];
   const types = ['string', 'number', 'boolean', 'void', 'any', 'null', 'undefined', 'interface', 'type'];
   
-  let result = line;
+  let result = escaped;
   
-  // Highlight strings
-  result = result.replace(/(["'`])(.*?)\1/g, '<span class="text-green-400">$&</span>');
+  // Highlight strings (already escaped)
+  result = result.replace(/(&#039;|&quot;)(.*?)\1/g, '<span class="text-green-400">$&</span>');
   
   // Highlight keywords
   keywords.forEach(keyword => {
@@ -221,5 +226,11 @@ function highlightSyntax(line: string): React.ReactNode {
   // Highlight numbers
   result = result.replace(/\b(\d+)\b/g, '<span class="text-orange-400">$1</span>');
   
-  return <span dangerouslySetInnerHTML={{ __html: result }} />;
+  // Sanitize the final HTML with DOMPurify
+  const sanitized = DOMPurify.sanitize(result, { 
+    ALLOWED_TAGS: ['span'],
+    ALLOWED_ATTR: ['class']
+  });
+  
+  return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -34,12 +35,20 @@ export const useChat = () => {
       
       console.log('📤 Sending to GPT-5...');
       
+      // Get session for auth header
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Please sign in to use the AI assistant');
+      }
+      
       const response = await fetch(
-        'https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat',
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({ 
             messages: messagesWithContext,
@@ -53,6 +62,14 @@ export const useChat = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+        }
+        if (response.status === 402) {
+          throw new Error('AI credits depleted. Please add credits to continue.');
+        }
+        
         throw new Error(errorData.error || `API Error: ${response.status}`);
       }
 
