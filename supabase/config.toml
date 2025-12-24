@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.lint-code]
 verify_jwt = true
+
+[functions.deploy-vercel]
+verify_jwt = true
