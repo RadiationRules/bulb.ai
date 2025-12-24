@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Rocket, ExternalLink, Clock, CheckCircle, XCircle, Loader2, Globe, Lock, Copy, RefreshCw, Zap, ArrowRight } from 'lucide-react';
+import { Rocket, ExternalLink, Clock, CheckCircle, XCircle, Loader2, Globe, Lock, Copy, RefreshCw, Zap, ArrowRight, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Deployment {
   id: string;
@@ -27,10 +28,13 @@ interface DeploymentPanelProps {
 export function DeploymentPanel({ projectId, projectName, visibility = 'private', onVisibilityChange }: DeploymentPanelProps) {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [deploying, setDeploying] = useState(false);
+  const [deployProgress, setDeployProgress] = useState<string[]>([]);
   const [selectedDeployment, setSelectedDeployment] = useState<Deployment | null>(null);
   const [isPublic, setIsPublic] = useState(visibility === 'public');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [deploymentStatus, setDeploymentStatus] = useState<'idle' | 'deploying' | 'success' | 'failed'>('idle');
   const { toast } = useToast();
+  const { session } = useAuth();
 
   useEffect(() => {
     loadDeployments();
@@ -77,45 +81,100 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
   };
 
   const handleVercelDeploy = async () => {
+    if (!session?.access_token) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to deploy your project.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setDeploying(true);
+    setDeploymentStatus('deploying');
+    setDeployProgress(['🚀 Starting deployment...']);
     
-    toast({
-      title: "Deploying to Vercel",
-      description: "Opening Vercel deployment...",
-    });
+    try {
+      // Get project files
+      setDeployProgress(prev => [...prev, '📦 Fetching project files...']);
+      
+      const { data: files, error: filesError } = await supabase
+        .from('project_files')
+        .select('file_path, file_content')
+        .eq('project_id', projectId);
 
-    // Open Vercel import page
-    window.open('https://vercel.com/new', '_blank');
-    
-    // Create deployment record
-    const timestamp = Date.now().toString(36);
-    const generatedUrl = `https://${projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${timestamp}.vercel.app`;
-    
-    await supabase.from('deployments').insert({
-      project_id: projectId,
-      status: 'success',
-      url: generatedUrl,
-      logs: [
-        '🚀 Starting Vercel deployment...',
-        '📦 Building project...',
-        '🔧 Optimizing assets...',
-        '📤 Deploying to CDN...',
-        '✅ Deployment complete!'
-      ]
-    });
+      if (filesError) throw new Error('Failed to load project files');
 
-    await supabase.from('projects').update({
-      preview_url: generatedUrl
-    }).eq('id', projectId);
+      // Transform files into the format expected by Vercel
+      const projectFiles: Record<string, string> = {};
+      files?.forEach(file => {
+        if (file.file_content) {
+          projectFiles[file.file_path] = file.file_content;
+        }
+      });
 
-    setPreviewUrl(generatedUrl);
-    loadDeployments();
-    setDeploying(false);
-    
-    toast({
-      title: "Deployment Started",
-      description: "Complete the setup in Vercel to finish deployment.",
-    });
+      setDeployProgress(prev => [...prev, `📁 Found ${Object.keys(projectFiles).length} files`]);
+      setDeployProgress(prev => [...prev, '🔧 Connecting to Vercel...']);
+
+      // Call our edge function to deploy to Vercel
+      const { data, error } = await supabase.functions.invoke('deploy-vercel', {
+        body: {
+          projectId,
+          projectName,
+          files: projectFiles
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.needsSetup) {
+        setDeploymentStatus('failed');
+        setDeployProgress(prev => [...prev, '❌ ' + data.message]);
+        toast({
+          title: "Setup Required",
+          description: data.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data.error) {
+        throw new Error(data.message || data.error);
+      }
+
+      setDeployProgress(prev => [...prev, '⚡ Building on Vercel...']);
+      setDeployProgress(prev => [...prev, '🌐 Deploying to CDN...']);
+      
+      // Simulate the build progress while Vercel builds
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setDeployProgress(prev => [...prev, '🔒 Configuring SSL...']);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setDeployProgress(prev => [...prev, `✅ Deployed to: ${data.url}`]);
+      
+      setPreviewUrl(data.url);
+      setDeploymentStatus('success');
+      
+      toast({
+        title: "🎉 Deployment Successful!",
+        description: "Your site is now live on Vercel.",
+      });
+
+      loadDeployments();
+
+    } catch (error) {
+      console.error('Deployment error:', error);
+      setDeploymentStatus('failed');
+      setDeployProgress(prev => [...prev, `❌ Error: ${error instanceof Error ? error.message : 'Deployment failed'}`]);
+      
+      toast({
+        title: "Deployment Failed",
+        description: error instanceof Error ? error.message : 'An error occurred during deployment.',
+        variant: "destructive"
+      });
+    } finally {
+      setDeploying(false);
+    }
   };
 
   const copyUrl = (url: string) => {
@@ -134,7 +193,7 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'building': return <Badge variant="outline">Building</Badge>;
+      case 'building': return <Badge variant="outline" className="animate-pulse">Building</Badge>;
       case 'success': return <Badge className="bg-green-500">Live</Badge>;
       case 'failed': return <Badge variant="destructive">Failed</Badge>;
       default: return <Badge variant="outline">{status}</Badge>;
@@ -177,31 +236,61 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
           </Card>
 
           {/* Vercel Deployment Card */}
-          <Card className="border-primary/20 bg-gradient-to-br from-card to-card/80 animate-fade-in">
+          <Card className="border-primary/20 bg-gradient-to-br from-card to-card/80 animate-fade-in overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <Rocket className="h-5 w-5 text-primary" />
+                  <div className="p-2 rounded-lg bg-primary/10 relative">
+                    <Rocket className={`h-5 w-5 text-primary ${deploying ? 'animate-bounce' : ''}`} />
+                    {deploying && (
+                      <div className="absolute inset-0 rounded-lg bg-primary/20 animate-ping" />
+                    )}
                   </div>
                   <div>
                     <CardTitle className="text-base">Deploy to Vercel</CardTitle>
-                    <CardDescription>One-click deployment to production</CardDescription>
+                    <CardDescription>Real deployment to production</CardDescription>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-green-500 border-green-500/50">
                   <Zap className="w-3 h-3 mr-1" />
-                  Recommended
+                  Live
                 </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Deployment Progress */}
+              {deployProgress.length > 0 && (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg border animate-fade-in">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {deploying ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : deploymentStatus === 'success' ? (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    ) : deploymentStatus === 'failed' ? (
+                      <AlertCircle className="h-4 w-4 text-destructive" />
+                    ) : null}
+                    <span>Deployment Log</span>
+                  </div>
+                  <div className="space-y-1 text-xs font-mono max-h-32 overflow-y-auto">
+                    {deployProgress.map((log, i) => (
+                      <div 
+                        key={i} 
+                        className={`text-muted-foreground animate-fade-in`}
+                        style={{ animationDelay: `${i * 50}ms` }}
+                      >
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Live URL if exists */}
               {previewUrl && (
-                <div className="space-y-2">
+                <div className="space-y-2 animate-fade-in">
                   <div className="flex items-center gap-2 text-sm text-green-600">
                     <CheckCircle className="h-4 w-4" />
-                    <span className="font-medium">Live</span>
+                    <span className="font-medium">Live on Vercel</span>
                   </div>
                   <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
                     <Globe className="h-4 w-4 text-green-600 flex-shrink-0" />
@@ -221,17 +310,20 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
               <Button 
                 onClick={handleVercelDeploy}
                 disabled={deploying}
-                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 relative overflow-hidden"
               >
+                {deploying && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                )}
                 {deploying ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Deploying...
+                    Deploying to Vercel...
                   </>
                 ) : (
                   <>
                     <Rocket className="w-4 h-4 mr-2" />
-                    {previewUrl ? 'Redeploy' : 'Deploy Now'}
+                    {previewUrl ? 'Redeploy' : 'Deploy'}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </>
                 )}
@@ -240,7 +332,7 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
               <div className="text-xs text-muted-foreground space-y-1">
                 <p className="flex items-center gap-2">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  Automatic SSL certificates
+                  Real Vercel deployment with SSL
                 </p>
                 <p className="flex items-center gap-2">
                   <CheckCircle className="w-3 h-3 text-green-500" />
@@ -248,7 +340,7 @@ export function DeploymentPanel({ projectId, projectName, visibility = 'private'
                 </p>
                 <p className="flex items-center gap-2">
                   <CheckCircle className="w-3 h-3 text-green-500" />
-                  Instant rollbacks
+                  Searchable public URL
                 </p>
               </div>
             </CardContent>

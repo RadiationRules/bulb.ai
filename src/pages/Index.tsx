@@ -5,6 +5,7 @@ import { Navigation } from "@/components/Navigation";
 import { BulbIcon } from "@/components/BulbIcon";
 import { FeatureCard } from "@/components/FeatureCard";
 import { ChatInterface } from "@/components/ChatInterface";
+import { ProjectTemplates } from "@/components/ProjectTemplates";
 import { useAuth } from "@/hooks/useAuth";
 
 import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle } from "lucide-react";
@@ -162,6 +163,14 @@ const Index = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Templates Section */}
+      <section id="templates" className="py-20 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
+        <div className="container mx-auto px-4 relative z-10">
+          <ProjectTemplates />
         </div>
       </section>
 
