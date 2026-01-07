@@ -21,10 +21,12 @@ import {
   GitFork,
   Eye,
   Search,
-  Filter
+  Filter,
+  Settings
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { ProjectSettings } from '@/components/ProjectSettings';
+import { ProjectSettingsModal } from '@/components/ProjectSettingsModal';
+import { CommunityExplore } from '@/components/CommunityExplore';
 
 interface Project {
   id: string;
@@ -252,15 +254,30 @@ export default function Dashboard() {
     }
   };
 
+  const [settingsProject, setSettingsProject] = useState<Project | null>(null);
+
   const ProjectCard = ({ project, showOwner = true }: { project: Project; showOwner?: boolean }) => {
     const isStarred = starredProjects.some(p => p.id === project.id);
     
     return (
-      <Card className="hover:shadow-lg transition-all duration-200 cursor-pointer group">
+      <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm hover:-translate-y-1">
+        {/* Preview Image */}
+        <div 
+          className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden"
+          onClick={() => openProject(project.id)}
+        >
+          <img 
+            src={`https://picsum.photos/seed/${project.id}/400/225`}
+            alt={project.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1" onClick={() => openProject(project.id)}>
-              <CardTitle className="text-lg group-hover:text-primary transition-colors">
+              <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-1">
                 {project.title}
               </CardTitle>
               <CardDescription className="mt-1 line-clamp-2">
@@ -275,58 +292,68 @@ export default function Dashboard() {
                   e.stopPropagation();
                   toggleStar(project.id, isStarred);
                 }}
+                className="h-8 px-2"
               >
                 <Star className={`w-4 h-4 ${isStarred ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-                {project.stars_count}
+                <span className="ml-1 text-xs">{project.stars_count || 0}</span>
               </Button>
-              <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>
-                {project.visibility === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
-                {project.visibility}
-              </Badge>
               {!showOwner && (
-                <ProjectSettings 
-                  projectId={project.id} 
-                  projectTitle={project.title}
-                  onUpdate={() => {
-                    fetchMyProjects();
-                    fetchStarredProjects();
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSettingsProject(project);
                   }}
-                />
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
               )}
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {showOwner && (
-            <div className="flex items-center gap-2 mb-3">
-              <Avatar className="w-6 h-6">
-                <AvatarImage src={project.owner?.avatar_url} />
-                <AvatarFallback>{project.owner?.display_name?.[0] || 'U'}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-muted-foreground">
-                {project.owner?.display_name || project.owner?.username}
-              </span>
-            </div>
-          )}
+          {/* Visibility Badge */}
+          <div className="flex items-center justify-between mb-3">
+            <Badge 
+              variant={project.visibility === 'public' ? 'default' : 'secondary'}
+              className={project.visibility === 'public' ? 'bg-green-500/20 text-green-600 border-green-500/30' : ''}
+            >
+              {project.visibility === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+              {project.visibility}
+            </Badge>
+            {showOwner && (
+              <div className="flex items-center gap-2">
+                <Avatar className="w-5 h-5">
+                  <AvatarImage src={project.owner?.avatar_url} />
+                  <AvatarFallback className="text-[10px]">{project.owner?.display_name?.[0] || 'U'}</AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                  {project.owner?.display_name || project.owner?.username}
+                </span>
+              </div>
+            )}
+          </div>
           
           <div className="flex flex-wrap gap-1 mb-3">
             {project.tags?.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs">
+              <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">
                 {tag}
               </Badge>
             ))}
             {project.tags?.length > 3 && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                 +{project.tags.length - 3}
               </Badge>
             )}
           </div>
           
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center gap-3">
               <span className="flex items-center gap-1">
                 <GitFork className="w-3 h-3" />
-                {project.forks_count}
+                {project.forks_count || 0}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
@@ -396,23 +423,7 @@ export default function Dashboard() {
             </div>
 
             <TabsContent value="explore" className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                {projects.filter(project => 
-                  project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                  project.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-                ).map((project) => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </div>
-              
-              {projects.length === 0 && (
-                <div className="text-center py-12">
-                  <Folder className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No public projects yet</h3>
-                  <p className="text-muted-foreground">Be the first to share a project with the community!</p>
-                </div>
-              )}
+              <CommunityExplore />
             </TabsContent>
 
             <TabsContent value="myprojects" className="space-y-6">
@@ -459,6 +470,25 @@ export default function Dashboard() {
           </Tabs>
         </div>
       </main>
+
+      {/* Project Settings Modal */}
+      {settingsProject && (
+        <ProjectSettingsModal
+          open={!!settingsProject}
+          onOpenChange={(open) => !open && setSettingsProject(null)}
+          projectId={settingsProject.id}
+          projectTitle={settingsProject.title}
+          projectDescription={settingsProject.description}
+          projectVisibility={settingsProject.visibility}
+          projectTags={settingsProject.tags}
+          projectCreatedAt={settingsProject.created_at}
+          onUpdate={() => {
+            fetchMyProjects();
+            fetchStarredProjects();
+            setSettingsProject(null);
+          }}
+        />
+      )}
     </div>
   );
 }

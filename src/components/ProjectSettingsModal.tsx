@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dialog, 
@@ -33,7 +33,10 @@ import {
   Copy,
   ExternalLink,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Image,
+  Upload,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -60,6 +63,13 @@ const PROJECT_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+// Generate a random project preview image
+const generatePreviewImage = (title: string) => {
+  const colors = ['3b82f6', '8b5cf6', 'ec4899', '10b981', 'f59e0b', '6366f1'];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  return `https://placehold.co/800x450/${color}/white?text=${encodeURIComponent(title.substring(0, 20))}`;
+};
+
 export const ProjectSettingsModal = ({
   open,
   onOpenChange,
@@ -73,6 +83,8 @@ export const ProjectSettingsModal = ({
 }: ProjectSettingsModalProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const faviconInputRef = useRef<HTMLInputElement>(null);
+  const previewInputRef = useRef<HTMLInputElement>(null);
   
   const [title, setTitle] = useState(projectTitle);
   const [description, setDescription] = useState(projectDescription);
@@ -84,6 +96,12 @@ export const ProjectSettingsModal = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  
+  // Image states
+  const [faviconUrl, setFaviconUrl] = useState<string>('');
+  const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingPreview, setUploadingPreview] = useState(false);
 
   useEffect(() => {
     setTitle(projectTitle);
@@ -91,7 +109,38 @@ export const ProjectSettingsModal = ({
     setVisibility(projectVisibility);
     setTags(projectTags);
     setProjectType(projectTags[0] || 'web');
+    // Generate default preview if none exists
+    if (!previewImageUrl) {
+      setPreviewImageUrl(generatePreviewImage(projectTitle));
+    }
   }, [projectTitle, projectDescription, projectVisibility, projectTags]);
+
+  const handleImageUpload = async (file: File, type: 'favicon' | 'preview') => {
+    const isUploading = type === 'favicon' ? setUploadingFavicon : setUploadingPreview;
+    const setUrl = type === 'favicon' ? setFaviconUrl : setPreviewImageUrl;
+    
+    isUploading(true);
+    try {
+      // For demo purposes, create a local URL
+      // In production, you'd upload to Supabase Storage
+      const url = URL.createObjectURL(file);
+      setUrl(url);
+      
+      toast({
+        title: `${type === 'favicon' ? 'Favicon' : 'Preview image'} updated`,
+        description: 'Image will be saved with your project settings.',
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: 'Upload failed',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      isUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -105,6 +154,7 @@ export const ProjectSettingsModal = ({
           description,
           visibility,
           tags: updatedTags,
+          preview_url: previewImageUrl || null,
         })
         .eq('id', projectId);
 
@@ -291,29 +341,148 @@ export const ProjectSettingsModal = ({
             </p>
           </div>
 
-          {/* Visibility */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-            <div className="flex items-center gap-3">
-              {visibility === 'public' ? (
-                <Globe className="w-5 h-5 text-green-500" />
-              ) : (
-                <Lock className="w-5 h-5 text-muted-foreground" />
-              )}
-              <div>
-                <p className="font-medium text-sm">
-                  {visibility === 'public' ? 'Public' : 'Private'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {visibility === 'public' 
-                    ? 'Anyone can view this project' 
-                    : 'Only you can access this project'}
-                </p>
+          {/* Project Images Section */}
+          <div className="space-y-4">
+            <Label className="text-sm font-medium">Project Images</Label>
+            
+            {/* Preview Image */}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Preview Image (shown in Explore)</p>
+              <div className="relative group">
+                <div className="aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed border-border hover:border-primary/50 transition-colors">
+                  {previewImageUrl ? (
+                    <img 
+                      src={previewImageUrl} 
+                      alt="Project preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Image className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={() => previewInputRef.current?.click()}
+                      disabled={uploadingPreview}
+                    >
+                      <Upload className="w-4 h-4 mr-1" />
+                      {uploadingPreview ? 'Uploading...' : 'Upload'}
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="secondary"
+                      onClick={() => setPreviewImageUrl(generatePreviewImage(title))}
+                    >
+                      <Sparkles className="w-4 h-4 mr-1" />
+                      Generate
+                    </Button>
+                  </div>
+                </div>
+                <input
+                  ref={previewInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, 'preview');
+                  }}
+                />
               </div>
             </div>
-            <Switch
-              checked={visibility === 'public'}
-              onCheckedChange={(checked) => setVisibility(checked ? 'public' : 'private')}
-            />
+
+            {/* Favicon */}
+            <div className="flex items-center gap-4">
+              <div className="space-y-2 flex-1">
+                <p className="text-xs text-muted-foreground">Favicon (site icon)</p>
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-12 h-12 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center cursor-pointer overflow-hidden bg-muted"
+                    onClick={() => faviconInputRef.current?.click()}
+                  >
+                    {faviconUrl ? (
+                      <img src={faviconUrl} alt="Favicon" className="w-full h-full object-cover" />
+                    ) : (
+                      <Image className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => faviconInputRef.current?.click()}
+                      disabled={uploadingFavicon}
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadingFavicon ? 'Uploading...' : 'Upload Favicon'}
+                    </Button>
+                  </div>
+                  {faviconUrl && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setFaviconUrl('')}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={faviconInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, 'favicon');
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Visibility - Enhanced */}
+          <div className="space-y-3">
+            <Label>Visibility</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setVisibility('private')}
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-lg border-2 transition-all",
+                  visibility === 'private' 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                <Lock className={cn("w-5 h-5", visibility === 'private' ? "text-primary" : "text-muted-foreground")} />
+                <div className="text-left">
+                  <p className={cn("font-medium text-sm", visibility === 'private' && "text-primary")}>Private</p>
+                  <p className="text-xs text-muted-foreground">Only you</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setVisibility('public')}
+                className={cn(
+                  "flex items-center gap-3 p-4 rounded-lg border-2 transition-all",
+                  visibility === 'public' 
+                    ? "border-green-500 bg-green-500/10" 
+                    : "border-border hover:border-green-500/50"
+                )}
+              >
+                <Globe className={cn("w-5 h-5", visibility === 'public' ? "text-green-500" : "text-muted-foreground")} />
+                <div className="text-left">
+                  <p className={cn("font-medium text-sm", visibility === 'public' && "text-green-600")}>Public</p>
+                  <p className="text-xs text-muted-foreground">Everyone</p>
+                </div>
+              </button>
+            </div>
           </div>
 
           {/* Tags */}
