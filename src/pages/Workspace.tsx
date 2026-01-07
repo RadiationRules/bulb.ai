@@ -75,6 +75,7 @@ import { CodePlayground } from '@/components/CodePlayground';
 import { ProfileModal } from '@/components/ProfileModal';
 import { VoiceInput } from '@/components/VoiceInput';
 import { LiveCodeOverlay } from '@/components/LiveCodeOverlay';
+import { AICodingScreen } from '@/components/AICodingScreen';
 import { 
   Dialog, 
   DialogContent, 
@@ -1174,6 +1175,21 @@ Start editing the files to build your project!`,
     );
   }
 
+  // Get AI coding state from useChat
+  const { messages: chatMessages, isLoading: aiIsLoading, currentFile: aiCurrentFile } = useChat();
+  const [showAICodingScreen, setShowAICodingScreen] = useState(false);
+  
+  // Show AI coding screen when AI is generating code
+  useEffect(() => {
+    if (aiIsLoading && aiCurrentFile) {
+      setShowAICodingScreen(true);
+    } else if (!aiIsLoading) {
+      // Keep screen visible for a moment after completion
+      const timeout = setTimeout(() => setShowAICodingScreen(false), 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [aiIsLoading, aiCurrentFile]);
+
   return (
     <div 
       className="h-screen bg-background flex flex-col"
@@ -1181,6 +1197,14 @@ Start editing the files to build your project!`,
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* AI Coding Screen Overlay */}
+      <AICodingScreen
+        isActive={showAICodingScreen && codingFile !== null}
+        filename={codingFile || 'code'}
+        code={fileContent}
+        onClose={() => setShowAICodingScreen(false)}
+      />
+
       {/* Real-time Presence Indicator */}
       {project && user && (
         <PresenceIndicator 
@@ -1270,64 +1294,21 @@ Start editing the files to build your project!`,
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
           <Button 
-            variant="outline" 
+            variant="default" 
             size="sm" 
+            className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700"
             onClick={() => {
-              const htmlFile = files.find(f => f.file_path === 'index.html');
-              if (htmlFile) {
-                // Create a complete HTML document with proper asset handling
-                const fullHtml = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${project?.title || 'Preview'}</title>
-  <style>
-    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-  </style>
-</head>
-<body>
-  ${htmlFile.file_content.replace(/<\/?(?:html|head|body)[^>]*>/gi, '')}
-  <script>
-    // Inject CSS files
-    ${files.filter(f => f.file_path.endsWith('.css')).map(f => 
-      `const style${files.indexOf(f)} = document.createElement('style');
-       style${files.indexOf(f)}.textContent = \`${f.file_content.replace(/`/g, '\\`')}\`;
-       document.head.appendChild(style${files.indexOf(f)});`
-    ).join('\n')}
-    
-    // Inject JS files
-    ${files.filter(f => f.file_path.endsWith('.js')).map(f => 
-      `try { ${f.file_content} } catch(e) { console.error('Error in ${f.file_path}:', e); }`
-    ).join('\n')}
-  </script>
-</body>
-</html>`;
-                
-                const blob = new Blob([fullHtml], { type: 'text/html' });
-                const url = URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                // Generate realistic deployment URL with random chars
-                const randomId = Math.random().toString(36).substring(2, 10);
-                const deployUrl = `https://bulbai-${randomId}-${profile?.username || 'workspace'}.vercel.app`;
-                toast({ 
-                  title: "🚀 Site Deployed!", 
-                  description: `Live at ${deployUrl}`,
-                  duration: 1500
-                });
-              } else {
-                toast({ 
-                  title: "No HTML file", 
-                  description: "Create an index.html file first", 
-                  variant: "destructive",
-                  duration: 1500
-                });
-              }
+              // Redirect to Vercel for real deployment
+              window.open('https://vercel.com/new?utm_source=bulbai&utm_campaign=deploy', '_blank');
+              toast({ 
+                title: "🚀 Redirecting to Vercel", 
+                description: "Sign in to deploy your project live!",
+                duration: 3000
+              });
             }}
           >
-            <Play className="w-4 h-4 mr-2" />
-            Deploy Live
+            <Rocket className="w-4 h-4 mr-2" />
+            Deploy
           </Button>
         </div>
       </div>

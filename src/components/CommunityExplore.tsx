@@ -323,114 +323,94 @@ export const CommunityExplore = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-primary/10 via-background to-background py-12 px-4 border-b">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
-              Discover Amazing Projects
-            </h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto">
-              Explore {allProjects.length}+ community projects. Get inspired, learn, and build something amazing.
-            </p>
-          </div>
-
-          {/* Search Bar */}
-          <div className="max-w-2xl mx-auto relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search projects, templates, or creators..."
-              className="pl-12 pr-4 py-6 text-lg rounded-xl bg-card/50 backdrop-blur-sm border-border/50 focus:border-primary"
-            />
-          </div>
-        </div>
+    <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="relative max-w-xl">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search projects, templates, or creators..."
+          className="pl-12 pr-4 py-5 text-base rounded-xl bg-card/50 backdrop-blur-sm border-border/50 focus:border-primary"
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Categories */}
-        <ScrollArea className="w-full pb-4">
-          <div className="flex gap-2 mb-6">
-            {CATEGORIES.map(cat => {
-              const Icon = cat.icon;
-              return (
-                <Button
-                  key={cat.id}
-                  variant={selectedCategory === cat.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={cn(
-                    "flex-shrink-0 transition-all",
-                    selectedCategory === cat.id && "shadow-lg"
-                  )}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {cat.name}
-                </Button>
-              );
-            })}
-          </div>
-        </ScrollArea>
-
-        {/* Sort & Filter */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {filteredProjects.length} projects found
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
-              <TabsList className="h-8">
-                <TabsTrigger value="trending" className="text-xs h-6">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  Trending
-                </TabsTrigger>
-                <TabsTrigger value="popular" className="text-xs h-6">
-                  <Star className="w-3 h-3 mr-1" />
-                  Popular
-                </TabsTrigger>
-                <TabsTrigger value="recent" className="text-xs h-6">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Recent
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
+      {/* Categories */}
+      <ScrollArea className="w-full pb-2">
+        <div className="flex gap-2">
+          {CATEGORIES.map(cat => {
+            const Icon = cat.icon;
+            return (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.id ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  "flex-shrink-0 transition-all",
+                  selectedCategory === cat.id && "shadow-lg"
+                )}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {cat.name}
+              </Button>
+            );
+          })}
         </div>
+      </ScrollArea>
 
-        {/* Projects Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <div className="aspect-video bg-muted" />
-                <CardContent className="p-4 space-y-3">
-                  <div className="h-4 bg-muted rounded w-3/4" />
-                  <div className="h-3 bg-muted rounded w-full" />
-                  <div className="h-3 bg-muted rounded w-1/2" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProjects.map(project => (
-              <ProjectCard key={project.id} project={project} />
-            ))}
-          </div>
-        )}
-
-        {filteredProjects.length === 0 && !loading && (
-          <div className="text-center py-16">
-            <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No projects found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters</p>
-          </div>
-        )}
+      {/* Sort & Filter */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
+          {filteredProjects.length} projects found
+        </span>
+        <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+          <TabsList className="h-8">
+            <TabsTrigger value="trending" className="text-xs h-6">
+              <TrendingUp className="w-3 h-3 mr-1" />
+              Trending
+            </TabsTrigger>
+            <TabsTrigger value="popular" className="text-xs h-6">
+              <Star className="w-3 h-3 mr-1" />
+              Popular
+            </TabsTrigger>
+            <TabsTrigger value="recent" className="text-xs h-6">
+              <Zap className="w-3 h-3 mr-1" />
+              Recent
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
+
+      {/* Projects Grid */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <div className="aspect-video bg-muted" />
+              <CardContent className="p-4 space-y-3">
+                <div className="h-4 bg-muted rounded w-3/4" />
+                <div className="h-3 bg-muted rounded w-full" />
+                <div className="h-3 bg-muted rounded w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProjects.map(project => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
+        </div>
+      )}
+
+      {filteredProjects.length === 0 && !loading && (
+        <div className="text-center py-16">
+          <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">No projects found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters</p>
+        </div>
+      )}
     </div>
   );
 };
