@@ -5,7 +5,6 @@ import { Navigation } from "@/components/Navigation";
 import { BulbIcon } from "@/components/BulbIcon";
 import { FeatureCard } from "@/components/FeatureCard";
 import { ChatInterface } from "@/components/ChatInterface";
-import { ProjectTemplates } from "@/components/ProjectTemplates";
 import { useAuth } from "@/hooks/useAuth";
 
 import { Code, Lightbulb, Hammer, Zap, Brain, Rocket, MessageCircle } from "lucide-react";
@@ -62,23 +61,23 @@ const Index = () => {
           <div className="flex flex-col lg:flex-row items-center gap-12">
             <div className="flex-1 text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start mb-6 opacity-0 animate-fade-in-left">
-                <BulbIcon className="w-16 h-16 mr-4 animate-scale-in animation-delay-200" animated />
-                <h1 className="text-5xl lg:text-7xl font-bold animate-fade-in-right animation-delay-400">
+                <BulbIcon className="w-16 h-16 mr-4 animate-scale-in" animated />
+                <h1 className="text-5xl lg:text-7xl font-bold animate-fade-in-right">
                   <span className="bg-gradient-to-r from-tech-blue via-tech-purple to-bulb-glow bg-clip-text text-transparent">
                     BulbAI
                   </span>
                 </h1>
               </div>
               
-              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-foreground leading-tight opacity-0 animate-fade-in-up animation-delay-600">
+              <h2 className="text-3xl lg:text-5xl font-bold mb-6 text-foreground leading-tight opacity-0 animate-fade-in-up animation-delay-200">
                 Your Complete Development Platform
               </h2>
               
-              <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl opacity-0 animate-fade-in-up animation-delay-800">
+              <p className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl opacity-0 animate-fade-in-up animation-delay-400">
                 Build, collaborate, and deploy projects with AI assistance. Join thousands of developers creating amazing applications.
               </p>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start opacity-0 animate-fade-in-up animation-delay-1000">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start opacity-0 animate-fade-in-up animation-delay-600">
                 <Button 
                   size="lg" 
                   onClick={handleGetStarted}
@@ -99,7 +98,7 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="flex-1 relative opacity-0 animate-fade-in-right animation-delay-800">
+            <div className="flex-1 relative opacity-0 animate-fade-in-right animation-delay-400">
               <img 
                 src={heroImage}
                 alt="BulbAI Development Platform"
@@ -163,14 +162,6 @@ const Index = () => {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Templates Section */}
-      <section id="templates" className="py-20 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent" />
-        <div className="container mx-auto px-4 relative z-10">
-          <ProjectTemplates />
         </div>
       </section>
 

@@ -9,17 +9,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { BulbIcon } from '@/components/BulbIcon';
 import { 
   Plus, 
-  Folder, 
   Star, 
-  Users, 
   Clock, 
   Globe, 
   Lock, 
   Code2, 
   GitFork,
-  Eye,
   Search,
   Filter,
   Settings
@@ -261,16 +259,16 @@ export default function Dashboard() {
     
     return (
       <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm hover:-translate-y-1">
-        {/* Preview Image */}
+        {/* Preview Image - Default BulbAI Template */}
         <div 
-          className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden"
+          className="aspect-video bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 relative overflow-hidden flex items-center justify-center"
           onClick={() => openProject(project.id)}
         >
-          <img 
-            src={`https://picsum.photos/seed/${project.id}/400/225`}
-            alt={project.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
+          <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
+          <div className="relative z-10 flex flex-col items-center gap-2">
+            <BulbIcon className="w-12 h-12 text-bulb-glow" />
+            <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
+          </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         
