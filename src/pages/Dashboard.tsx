@@ -379,7 +379,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <Navigation />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pb-8 pt-24">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
             <div className="flex-1 min-w-0">
