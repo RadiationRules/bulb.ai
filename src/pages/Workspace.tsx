@@ -548,6 +548,7 @@ export default function Workspace() {
   const [newFolderName, setNewFolderName] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [codingFile, setCodingFile] = useState<string | null>(null);
+  const [showAICodingScreen, setShowAICodingScreen] = useState(false);
   const [history, setHistory] = useState<{content: string, file: string}[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [showFileSearch, setShowFileSearch] = useState(false);
@@ -683,6 +684,17 @@ Start editing the files to build your project!`,
       fetchProject();
     }
   }, [projectId, user, loading]);
+
+  // AI coding screen visibility (driven by Copilot file operations)
+  useEffect(() => {
+    if (codingFile) {
+      setShowAICodingScreen(true);
+      return;
+    }
+
+    const timeout = setTimeout(() => setShowAICodingScreen(false), 700);
+    return () => clearTimeout(timeout);
+  }, [codingFile]);
 
   // Drag and drop file upload
   const handleDragOver = (e: React.DragEvent) => {
@@ -1174,22 +1186,6 @@ Start editing the files to build your project!`,
       </div>
     );
   }
-
-  // Get AI coding state from useChat
-  const { messages: chatMessages, isLoading: aiIsLoading, currentFile: aiCurrentFile } = useChat();
-  const [showAICodingScreen, setShowAICodingScreen] = useState(false);
-  
-  // Show AI coding screen when AI is generating code
-  useEffect(() => {
-    if (aiIsLoading && aiCurrentFile) {
-      setShowAICodingScreen(true);
-    } else if (!aiIsLoading) {
-      // Keep screen visible for a moment after completion
-      const timeout = setTimeout(() => setShowAICodingScreen(false), 1000);
-      return () => clearTimeout(timeout);
-    }
-  }, [aiIsLoading, aiCurrentFile]);
-
   return (
     <div 
       className="h-screen bg-background flex flex-col"

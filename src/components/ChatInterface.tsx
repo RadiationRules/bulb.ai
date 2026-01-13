@@ -10,18 +10,23 @@ import { LiveCodeOverlay } from "./LiveCodeOverlay";
 
 // Code highlighting component
 const CodeHighlight = ({ content }: { content: string }) => {
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+
   const parts = content.split(/(```[\s\S]*?```)/g);
-  
+
   return (
     <>
       {parts.map((part, index) => {
-        if (part.startsWith('```')) {
+        if (part.startsWith("```")) {
           const match = part.match(/```(\w+)?\n?([\s\S]*?)```/);
-          const language = match?.[1] || 'code';
-          const code = match?.[2] || part.slice(3, -3);
-          
+          const language = match?.[1] || "code";
+          const code = (match?.[2] || part.slice(3, -3)).trim();
+
           return (
-            <div key={index} className="my-3 rounded-lg overflow-hidden border border-border/50 bg-background/50">
+            <div
+              key={index}
+              className="my-3 rounded-lg overflow-hidden border border-border/50 bg-background/50"
+            >
               <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 border-b border-border/50">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
@@ -29,16 +34,43 @@ const CodeHighlight = ({ content }: { content: string }) => {
                     <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/70" />
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500/70" />
                   </div>
-                  <span className="text-xs text-muted-foreground font-mono">{language}</span>
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {language}
+                  </span>
                 </div>
-                <Code2 className="w-3 h-3 text-primary" />
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(code);
+                        setCopiedIndex(index);
+                        window.setTimeout(() => setCopiedIndex(null), 900);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                    title="Copy code"
+                  >
+                    <span className="text-xs text-muted-foreground">
+                      {copiedIndex === index ? "Copied" : "Copy"}
+                    </span>
+                  </Button>
+                  <Code2 className="w-3 h-3 text-primary" />
+                </div>
               </div>
+
               <pre className="p-3 overflow-x-auto text-sm font-mono leading-relaxed">
-                <code>{code.trim()}</code>
+                <code>{code}</code>
               </pre>
             </div>
           );
         }
+
         return <span key={index}>{part}</span>;
       })}
     </>
@@ -59,8 +91,13 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const root = scrollRef.current;
+    const viewport = root?.querySelector(
+      '[data-radix-scroll-area-viewport]'
+    ) as HTMLElement | null;
+
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
 
