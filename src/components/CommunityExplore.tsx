@@ -17,9 +17,7 @@ import {
   Eye, 
   GitFork, 
   Heart, 
-  TrendingUp,
   Zap,
-  Sparkles,
   Code2,
   Palette,
   ShoppingCart,
@@ -28,7 +26,8 @@ import {
   BookOpen,
   Briefcase,
   Globe,
-  Copy
+  Copy,
+  Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,83 +43,6 @@ const CATEGORIES = [
   { id: 'business', name: 'Business', icon: Briefcase },
 ];
 
-// Project type images that match the category
-const PROJECT_IMAGES: Record<string, string> = {
-  'AI Dashboard Pro': '/light-bulb.svg',
-  'E-Commerce Store': '/light-bulb.svg',
-  'Music Player': '/light-bulb.svg',
-  'Task Manager': '/light-bulb.svg',
-  'Weather App': '/light-bulb.svg',
-  'Portfolio Site': '/light-bulb.svg',
-  'Chat Application': '/light-bulb.svg',
-  'Blog Platform': '/light-bulb.svg',
-  'default': '/light-bulb.svg',
-};
-
-// Generate bot projects with proper images
-const generateBotProjects = () => {
-  const projectData = [
-    { name: 'AI Dashboard Pro', category: 'web', tags: ['react', 'typescript', 'ai'], desc: 'Beautiful analytics dashboard with AI-powered insights and real-time data visualization' },
-    { name: 'E-Commerce Store', category: 'ecommerce', tags: ['react', 'stripe', 'tailwind'], desc: 'Full-featured online store with cart, checkout, and payment processing' },
-    { name: 'Music Player', category: 'music', tags: ['react', 'audio', 'visualizer'], desc: 'Sleek music player with playlists, equalizer, and audio visualizations' },
-    { name: 'Task Manager', category: 'business', tags: ['react', 'typescript', 'drag-drop'], desc: 'Kanban-style task manager with drag-drop, deadlines, and team collaboration' },
-    { name: 'Weather App', category: 'web', tags: ['react', 'api', 'charts'], desc: 'Beautiful weather app with forecasts, maps, and animated weather icons' },
-    { name: 'Portfolio Site', category: 'design', tags: ['react', 'animation', 'framer'], desc: 'Stunning portfolio template with smooth animations and project showcases' },
-    { name: 'Chat Application', category: 'web', tags: ['react', 'websocket', 'realtime'], desc: 'Real-time chat app with channels, direct messages, and file sharing' },
-    { name: 'Blog Platform', category: 'web', tags: ['react', 'markdown', 'cms'], desc: 'Modern blog platform with markdown editor, categories, and SEO optimization' },
-    { name: 'Recipe Finder', category: 'web', tags: ['react', 'api', 'search'], desc: 'Recipe discovery app with ingredient search and meal planning' },
-    { name: 'Fitness Tracker', category: 'web', tags: ['react', 'charts', 'health'], desc: 'Workout tracker with exercise logging, progress charts, and goals' },
-    { name: 'Notes App', category: 'business', tags: ['react', 'markdown', 'sync'], desc: 'Feature-rich notes app with folders, tags, and cloud sync' },
-    { name: 'Calendar Pro', category: 'business', tags: ['react', 'typescript', 'scheduling'], desc: 'Professional calendar with events, reminders, and team scheduling' },
-    { name: 'Social Network', category: 'web', tags: ['react', 'realtime', 'social'], desc: 'Social media platform with posts, comments, and friend connections' },
-    { name: 'Video Player', category: 'music', tags: ['react', 'video', 'streaming'], desc: 'Advanced video player with playlists and picture-in-picture mode' },
-    { name: 'Code Editor', category: 'web', tags: ['react', 'monaco', 'typescript'], desc: 'Browser-based code editor with syntax highlighting and live preview' },
-    { name: 'Design System', category: 'design', tags: ['react', 'storybook', 'components'], desc: 'Comprehensive design system with reusable components and documentation' },
-    { name: 'Analytics Dashboard', category: 'business', tags: ['react', 'charts', 'd3'], desc: 'Data analytics dashboard with interactive charts and export features' },
-    { name: 'CRM Platform', category: 'business', tags: ['react', 'typescript', 'crm'], desc: 'Customer relationship manager with contacts, deals, and pipeline views' },
-    { name: 'Learning Hub', category: 'education', tags: ['react', 'video', 'courses'], desc: 'Online learning platform with courses, quizzes, and progress tracking' },
-    { name: 'Game Portal', category: 'games', tags: ['react', 'canvas', 'gaming'], desc: 'Browser game portal with multiple mini-games and leaderboards' },
-  ];
-
-  const usernames = [
-    'devmaster', 'codewhiz', 'pixelpro', 'reactninja', 'fullstackdev',
-    'uiuxdesigner', 'webwizard', 'codecraft', 'techlead', 'softwaredev',
-  ];
-
-  const avatarColors = [
-    'from-blue-500 to-purple-600',
-    'from-green-500 to-teal-600',
-    'from-orange-500 to-red-600',
-    'from-pink-500 to-rose-600',
-    'from-indigo-500 to-blue-600',
-  ];
-
-  return projectData.map((project, i) => ({
-    id: `bot-${i}`,
-    title: project.name,
-    description: project.desc,
-    visibility: 'public',
-    category: project.category,
-    tags: project.tags,
-    stars_count: Math.floor(Math.random() * 500) + 100,
-    views_count: Math.floor(Math.random() * 5000) + 500,
-    forks_count: Math.floor(Math.random() * 100) + 10,
-    likes_count: Math.floor(Math.random() * 300) + 50,
-    trending_score: Math.random() * 100,
-    created_at: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-    owner: {
-      id: `bot-user-${i % usernames.length}`,
-      username: usernames[i % usernames.length],
-      display_name: usernames[i % usernames.length].charAt(0).toUpperCase() + usernames[i % usernames.length].slice(1),
-      avatar_gradient: avatarColors[i % avatarColors.length],
-      is_verified: Math.random() > 0.5,
-    },
-    isBot: true,
-  }));
-};
-
-const BOT_PROJECTS = generateBotProjects();
-
 interface Project {
   id: string;
   title: string;
@@ -129,20 +51,15 @@ interface Project {
   category?: string;
   tags?: string[];
   stars_count: number;
-  views_count?: number;
+  views_count: number;
   forks_count: number;
-  likes_count?: number;
-  trending_score?: number;
   created_at: string;
   owner: {
     id: string;
     username: string;
     display_name: string;
     avatar_url?: string;
-    avatar_gradient?: string;
-    is_verified?: boolean;
   };
-  isBot?: boolean;
 }
 
 export const CommunityExplore = () => {
@@ -151,20 +68,20 @@ export const CommunityExplore = () => {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState<'trending' | 'popular' | 'recent'>('trending');
-  const [realProjects, setRealProjects] = useState<Project[]>([]);
+  const [sortBy, setSortBy] = useState<'stars' | 'views' | 'recent'>('stars');
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [likedProjects, setLikedProjects] = useState<Set<string>>(new Set());
   const [remixingId, setRemixingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchRealProjects();
+    fetchProjects();
     if (profile) {
       fetchUserLikes();
     }
   }, [profile]);
 
-  const fetchRealProjects = async () => {
+  const fetchProjects = async () => {
     try {
       const { data, error } = await supabase
         .from('projects')
@@ -178,7 +95,7 @@ export const CommunityExplore = () => {
           )
         `)
         .eq('visibility', 'public')
-        .order('created_at', { ascending: false })
+        .order('stars_count', { ascending: false })
         .limit(50);
 
       if (error) throw error;
@@ -191,10 +108,8 @@ export const CommunityExplore = () => {
         category: p.tags?.[0] || 'web',
         tags: p.tags || [],
         stars_count: p.stars_count || 0,
-        views_count: p.stars_count ? p.stars_count * 10 : 0,
+        views_count: (p.stars_count || 0) * 10, // Estimate views from stars
         forks_count: p.forks_count || 0,
-        likes_count: p.stars_count || 0,
-        trending_score: Math.random() * 50 + 50,
         created_at: p.created_at,
         owner: {
           id: p.profiles?.id || '',
@@ -202,10 +117,9 @@ export const CommunityExplore = () => {
           display_name: p.profiles?.display_name || 'User',
           avatar_url: p.profiles?.avatar_url,
         },
-        isBot: false,
       })) || [];
 
-      setRealProjects(formatted);
+      setProjects(formatted);
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -229,7 +143,7 @@ export const CommunityExplore = () => {
     }
   };
 
-  const handleLike = async (projectId: string, isBot: boolean) => {
+  const handleLike = async (projectId: string) => {
     if (!user || !profile) {
       toast({
         title: "Sign in required",
@@ -238,6 +152,8 @@ export const CommunityExplore = () => {
       });
       return;
     }
+
+    const isLiked = likedProjects.has(projectId);
 
     // Optimistic update
     setLikedProjects(prev => {
@@ -250,29 +166,49 @@ export const CommunityExplore = () => {
       return newSet;
     });
 
-    // Only save to database for real projects
-    if (!isBot) {
-      try {
-        const isLiked = likedProjects.has(projectId);
-        if (isLiked) {
-          await supabase
-            .from('project_stars')
-            .delete()
-            .eq('project_id', projectId)
-            .eq('user_id', profile.id);
-        } else {
-          await supabase
-            .from('project_stars')
-            .insert({ project_id: projectId, user_id: profile.id });
-        }
-      } catch (error) {
-        console.error('Error toggling like:', error);
+    // Update project stars count locally
+    setProjects(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          stars_count: isLiked ? p.stars_count - 1 : p.stars_count + 1
+        };
       }
+      return p;
+    }));
+
+    try {
+      if (isLiked) {
+        await supabase
+          .from('project_stars')
+          .delete()
+          .eq('project_id', projectId)
+          .eq('user_id', profile.id);
+      } else {
+        await supabase
+          .from('project_stars')
+          .insert({ project_id: projectId, user_id: profile.id });
+      }
+      
+      // Refresh projects to get updated counts
+      fetchProjects();
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      // Revert optimistic update on error
+      setLikedProjects(prev => {
+        const newSet = new Set(prev);
+        if (isLiked) {
+          newSet.add(projectId);
+        } else {
+          newSet.delete(projectId);
+        }
+        return newSet;
+      });
     }
 
     toast({
-      title: likedProjects.has(projectId) ? "Removed from favorites" : "Added to favorites",
-      description: likedProjects.has(projectId) ? "Project removed from your favorites" : "Project added to your favorites"
+      title: isLiked ? "Removed from favorites" : "Added to favorites",
+      description: isLiked ? "Project removed from your favorites" : "Project added to your favorites"
     });
   };
 
@@ -289,6 +225,12 @@ export const CommunityExplore = () => {
     setRemixingId(project.id);
     
     try {
+      // Get original project files
+      const { data: originalFiles } = await supabase
+        .from('project_files')
+        .select('*')
+        .eq('project_id', project.id);
+
       // Create a new project based on the original
       const { data: newProject, error } = await supabase
         .from('projects')
@@ -306,11 +248,20 @@ export const CommunityExplore = () => {
 
       if (error) throw error;
 
-      // Create default files for the remix
-      await supabase.from('project_files').insert({
-        project_id: newProject.id,
-        file_path: 'index.html',
-        file_content: `<!DOCTYPE html>
+      // Copy files from original project or create default
+      if (originalFiles && originalFiles.length > 0) {
+        const newFiles = originalFiles.map(f => ({
+          project_id: newProject.id,
+          file_path: f.file_path,
+          file_content: f.file_content,
+          file_type: f.file_type
+        }));
+        await supabase.from('project_files').insert(newFiles);
+      } else {
+        await supabase.from('project_files').insert({
+          project_id: newProject.id,
+          file_path: 'index.html',
+          file_content: `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -330,8 +281,15 @@ export const CommunityExplore = () => {
     </div>
 </body>
 </html>`,
-        file_type: 'html'
-      });
+          file_type: 'html'
+        });
+      }
+
+      // Update forks count on original project
+      await supabase
+        .from('projects')
+        .update({ forks_count: (project.forks_count || 0) + 1 })
+        .eq('id', project.id);
 
       toast({
         title: "Project remixed!",
@@ -351,11 +309,8 @@ export const CommunityExplore = () => {
     }
   };
 
-  // Combine real and bot projects
-  const allProjects = [...realProjects, ...BOT_PROJECTS];
-
   // Filter and sort
-  const filteredProjects = allProjects
+  const filteredProjects = projects
     .filter(p => {
       const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -364,8 +319,8 @@ export const CommunityExplore = () => {
       return matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
-      if (sortBy === 'trending') return (b.trending_score || 0) - (a.trending_score || 0);
-      if (sortBy === 'popular') return b.stars_count - a.stars_count;
+      if (sortBy === 'stars') return b.stars_count - a.stars_count;
+      if (sortBy === 'views') return b.views_count - a.views_count;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
@@ -385,7 +340,7 @@ export const CommunityExplore = () => {
         {/* Preview Image - BulbAI default template */}
         <div 
           className="relative aspect-video overflow-hidden bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center"
-          onClick={() => !project.isBot && navigate(`/workspace/${project.id}`)}
+          onClick={() => navigate(`/workspace/${project.id}`)}
         >
           <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
           <div className="relative z-10 flex flex-col items-center gap-2">
@@ -393,25 +348,17 @@ export const CommunityExplore = () => {
             <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          
-          {/* Trending badge */}
-          {(project.trending_score || 0) > 80 && (
-            <Badge className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 border-0 animate-pulse">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              Trending
-            </Badge>
-          )}
 
           {/* Stats overlay on hover */}
           <div className="absolute bottom-2 left-2 right-2 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="flex items-center gap-1 text-white text-xs bg-black/50 rounded-full px-2 py-1">
               <Eye className="w-3 h-3" />
-              {formatNumber(project.views_count || 0)}
+              {formatNumber(project.views_count)}
             </span>
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                handleLike(project.id, project.isBot || false);
+                handleLike(project.id);
               }}
               className={cn(
                 "flex items-center gap-1 text-xs rounded-full px-2 py-1 transition-colors",
@@ -419,7 +366,7 @@ export const CommunityExplore = () => {
               )}
             >
               <Heart className={cn("w-3 h-3", isLiked && "fill-current")} />
-              {formatNumber((project.likes_count || 0) + (isLiked ? 1 : 0))}
+              {formatNumber(project.stars_count + (isLiked ? 1 : 0))}
             </button>
           </div>
         </div>
@@ -428,27 +375,14 @@ export const CommunityExplore = () => {
           {/* Owner */}
           <div className="flex items-center gap-2 mb-3">
             <Avatar className="w-6 h-6">
-              {project.owner.avatar_url ? (
-                <AvatarImage src={project.owner.avatar_url} />
-              ) : (
-                <div className={cn(
-                  "w-full h-full rounded-full bg-gradient-to-br flex items-center justify-center text-white text-xs font-bold",
-                  project.owner.avatar_gradient || 'from-primary to-primary/80'
-                )}>
-                  {project.owner.display_name[0]}
-                </div>
-              )}
-              <AvatarFallback>{project.owner.display_name[0]}</AvatarFallback>
+              <AvatarImage src={project.owner.avatar_url} />
+              <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                {project.owner.display_name[0]}
+              </AvatarFallback>
             </Avatar>
             <span className="text-sm text-muted-foreground truncate">
               {project.owner.display_name}
             </span>
-            {project.owner.is_verified && (
-              <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                <Zap className="w-2 h-2 mr-0.5" />
-                PRO
-              </Badge>
-            )}
           </div>
 
           {/* Title & Description */}
@@ -507,7 +441,7 @@ export const CommunityExplore = () => {
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search projects, templates, or creators..."
+          placeholder="Search projects..."
           className="pl-12 pr-4 py-5 text-base rounded-xl bg-card/50 backdrop-blur-sm border-border/50 focus:border-primary"
         />
       </div>
@@ -536,23 +470,23 @@ export const CommunityExplore = () => {
         </div>
       </ScrollArea>
 
-      {/* Sort & Filter */}
+      {/* Sort Options - Like GitHub */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
           {filteredProjects.length} projects found
         </span>
         <Tabs value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
           <TabsList className="h-8">
-            <TabsTrigger value="trending" className="text-xs h-6">
-              <TrendingUp className="w-3 h-3 mr-1" />
-              Trending
-            </TabsTrigger>
-            <TabsTrigger value="popular" className="text-xs h-6">
+            <TabsTrigger value="stars" className="text-xs h-6">
               <Star className="w-3 h-3 mr-1" />
-              Popular
+              Most Stars
+            </TabsTrigger>
+            <TabsTrigger value="views" className="text-xs h-6">
+              <Eye className="w-3 h-3 mr-1" />
+              Most Views
             </TabsTrigger>
             <TabsTrigger value="recent" className="text-xs h-6">
-              <Zap className="w-3 h-3 mr-1" />
+              <Clock className="w-3 h-3 mr-1" />
               Recent
             </TabsTrigger>
           </TabsList>
@@ -585,7 +519,11 @@ export const CommunityExplore = () => {
         <div className="text-center py-16">
           <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-medium mb-2">No projects found</h3>
-          <p className="text-muted-foreground">Try adjusting your search or filters</p>
+          <p className="text-muted-foreground">
+            {projects.length === 0 
+              ? "Be the first to create a public project!" 
+              : "Try adjusting your search or filters"}
+          </p>
         </div>
       )}
     </div>

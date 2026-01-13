@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,419 +9,350 @@ import {
   Star, 
   GitFork, 
   Users, 
-  TrendingUp, 
   Code, 
-  Sparkles,
-  ExternalLink,
-  UserPlus
+  UserPlus,
+  Eye
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-// Featured bot users (simulated active community)
-const FEATURED_USERS = [
-  {
-    id: 'bot-1',
-    username: 'sarah_codes',
-    display_name: 'Sarah Chen',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-    bio: 'Full-stack developer passionate about AI and React',
-    company: 'TechFlow Labs',
-    location: 'San Francisco, CA',
-    skills: ['React', 'TypeScript', 'AI'],
-    projects_count: 24,
-    stars_received: 847,
-    isBot: true
-  },
-  {
-    id: 'bot-2',
-    username: 'alex_dev',
-    display_name: 'Alex Rivera',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex',
-    bio: 'Backend specialist building scalable systems',
-    company: 'CloudScale Inc',
-    location: 'Austin, TX',
-    skills: ['Python', 'Go', 'Kubernetes'],
-    projects_count: 18,
-    stars_received: 623,
-    isBot: true
-  },
-  {
-    id: 'bot-3',
-    username: 'maya_builds',
-    display_name: 'Maya Johnson',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maya',
-    bio: 'UI/UX designer turned developer',
-    company: 'DesignCode Studio',
-    location: 'New York, NY',
-    skills: ['CSS', 'Figma', 'React'],
-    projects_count: 31,
-    stars_received: 1245,
-    isBot: true
-  },
-  {
-    id: 'bot-4',
-    username: 'dev_marcus',
-    display_name: 'Marcus Williams',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=marcus',
-    bio: 'Mobile & web developer, OSS contributor',
-    company: 'Startup Valley',
-    location: 'Seattle, WA',
-    skills: ['React Native', 'Flutter', 'Swift'],
-    projects_count: 15,
-    stars_received: 534,
-    isBot: true
-  },
-  {
-    id: 'bot-5',
-    username: 'code_emma',
-    display_name: 'Emma Zhang',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=emma',
-    bio: 'Machine learning engineer building intelligent apps',
-    company: 'AI Research Co',
-    location: 'Boston, MA',
-    skills: ['Python', 'TensorFlow', 'LLMs'],
-    projects_count: 22,
-    stars_received: 982,
-    isBot: true
-  },
-  {
-    id: 'bot-6',
-    username: 'nick_frontend',
-    display_name: 'Nick Anderson',
-    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=nick',
-    bio: 'Frontend architect and performance expert',
-    company: 'WebSpeed Agency',
-    location: 'Los Angeles, CA',
-    skills: ['Vue', 'Svelte', 'WebGL'],
-    projects_count: 19,
-    stars_received: 756,
-    isBot: true
-  }
-];
-
-// Featured projects (simulated popular projects)
-const FEATURED_PROJECTS = [
-  {
-    id: 'proj-1',
-    title: 'AI Dashboard Pro',
-    description: 'Beautiful analytics dashboard with AI-powered insights and real-time data visualization',
-    owner: FEATURED_USERS[0],
-    tags: ['React', 'AI', 'Dashboard'],
-    stars_count: 847,
-    forks_count: 156,
-    preview_url: 'https://ai-dashboard-demo.vercel.app'
-  },
-  {
-    id: 'proj-2',
-    title: 'CloudAPI Gateway',
-    description: 'High-performance API gateway with rate limiting and caching',
-    owner: FEATURED_USERS[1],
-    tags: ['Go', 'API', 'Microservices'],
-    stars_count: 623,
-    forks_count: 89,
-    preview_url: null
-  },
-  {
-    id: 'proj-3',
-    title: 'Pixel Perfect UI Kit',
-    description: 'Modern component library with 100+ beautiful components',
-    owner: FEATURED_USERS[2],
-    tags: ['React', 'CSS', 'UI'],
-    stars_count: 1245,
-    forks_count: 312,
-    preview_url: 'https://pixelperfect-ui.vercel.app'
-  },
-  {
-    id: 'proj-4',
-    title: 'SmartML Pipeline',
-    description: 'End-to-end machine learning pipeline with auto-optimization',
-    owner: FEATURED_USERS[4],
-    tags: ['Python', 'ML', 'AutoML'],
-    stars_count: 982,
-    forks_count: 201,
-    preview_url: null
-  },
-  {
-    id: 'proj-5',
-    title: '3D Portfolio Showcase',
-    description: 'Interactive 3D portfolio with WebGL animations',
-    owner: FEATURED_USERS[5],
-    tags: ['Three.js', 'WebGL', 'Animation'],
-    stars_count: 756,
-    forks_count: 134,
-    preview_url: 'https://3d-portfolio-demo.vercel.app'
-  },
-  {
-    id: 'proj-6',
-    title: 'E-Commerce Starter',
-    description: 'Full-featured e-commerce template with Stripe integration',
-    owner: FEATURED_USERS[2],
-    tags: ['Next.js', 'Stripe', 'Commerce'],
-    stars_count: 1567,
-    forks_count: 423,
-    preview_url: 'https://ecommerce-starter.vercel.app'
-  }
-];
+import { useAuth } from '@/hooks/useAuth';
+import { BulbIcon } from '@/components/BulbIcon';
+import { useNavigate } from 'react-router-dom';
 
 interface CommunityShowcaseProps {
   userId?: string;
 }
 
-export function CommunityShowcase({ userId }: CommunityShowcaseProps) {
-  const [realProjects, setRealProjects] = useState<any[]>([]);
-  const [realUsers, setRealUsers] = useState<any[]>([]);
-  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+interface Project {
+  id: string;
+  title: string;
+  description: string;
+  stars_count: number;
+  forks_count: number;
+  tags: string[];
+  owner: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
+}
+
+interface Creator {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  skills: string[];
+  projects_count: number;
+}
+
+export const CommunityShowcase = ({ userId }: CommunityShowcaseProps) => {
   const { toast } = useToast();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRealData();
-  }, []);
+    fetchData();
+    if (profile) {
+      fetchFollowing();
+    }
+  }, [profile]);
 
-  const fetchRealData = async () => {
+  const fetchData = async () => {
     try {
-      // Fetch real public projects
-      const { data: projects } = await supabase
+      // Fetch top projects by stars
+      const { data: projectsData } = await supabase
         .from('projects')
-        .select('*, profiles!projects_owner_id_fkey(username, display_name, avatar_url)')
+        .select(`
+          id, title, description, stars_count, forks_count, tags,
+          profiles!projects_owner_id_fkey (id, username, display_name, avatar_url)
+        `)
         .eq('visibility', 'public')
         .order('stars_count', { ascending: false })
         .limit(10);
 
-      if (projects) {
-        setRealProjects(projects);
+      if (projectsData) {
+        setProjects(projectsData.map(p => ({
+          id: p.id,
+          title: p.title,
+          description: p.description || '',
+          stars_count: p.stars_count || 0,
+          forks_count: p.forks_count || 0,
+          tags: p.tags || [],
+          owner: {
+            id: p.profiles?.id || '',
+            username: p.profiles?.username || 'user',
+            display_name: p.profiles?.display_name || 'User',
+            avatar_url: p.profiles?.avatar_url,
+          }
+        })));
       }
 
-      // Fetch real users
-      const { data: users } = await supabase
+      // Fetch creators with most projects
+      const { data: creatorsData } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, username, display_name, avatar_url, bio, skills')
         .limit(10);
 
-      if (users) {
-        setRealUsers(users);
+      if (creatorsData) {
+        // Get project counts for each creator
+        const creatorWithCounts = await Promise.all(
+          creatorsData.map(async (creator) => {
+            const { count } = await supabase
+              .from('projects')
+              .select('*', { count: 'exact', head: true })
+              .eq('owner_id', creator.id);
+            
+            return {
+              ...creator,
+              skills: creator.skills || [],
+              projects_count: count || 0
+            };
+          })
+        );
+        
+        setCreators(creatorWithCounts.sort((a, b) => b.projects_count - a.projects_count));
       }
     } catch (error) {
       console.error('Error fetching community data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleFollow = async (targetUserId: string) => {
-    if (!userId) {
+  const fetchFollowing = async () => {
+    if (!profile) return;
+    try {
+      const { data } = await supabase
+        .from('followers')
+        .select('following_id')
+        .eq('follower_id', profile.id);
+      
+      if (data) {
+        setFollowedUsers(new Set(data.map(f => f.following_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching following:', error);
+    }
+  };
+
+  const handleFollow = async (creatorId: string) => {
+    if (!profile) {
       toast({
         title: "Sign in required",
-        description: "Please sign in to follow users",
+        description: "Please sign in to follow creators",
         variant: "destructive"
       });
       return;
     }
 
-    // Optimistic UI update
+    const isFollowing = followedUsers.has(creatorId);
+
+    // Optimistic update
     setFollowedUsers(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(targetUserId)) {
-        newSet.delete(targetUserId);
+      if (isFollowing) {
+        newSet.delete(creatorId);
       } else {
-        newSet.add(targetUserId);
+        newSet.add(creatorId);
       }
       return newSet;
     });
 
-    toast({
-      title: followedUsers.has(targetUserId) ? "Unfollowed" : "Following",
-      description: followedUsers.has(targetUserId) 
-        ? "You unfollowed this user" 
-        : "You are now following this user"
-    });
+    try {
+      if (isFollowing) {
+        await supabase
+          .from('followers')
+          .delete()
+          .eq('follower_id', profile.id)
+          .eq('following_id', creatorId);
+      } else {
+        await supabase
+          .from('followers')
+          .insert({ follower_id: profile.id, following_id: creatorId });
+      }
+
+      toast({
+        title: isFollowing ? "Unfollowed" : "Following",
+        description: isFollowing ? "You unfollowed this creator" : "You are now following this creator"
+      });
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      // Revert on error
+      setFollowedUsers(prev => {
+        const newSet = new Set(prev);
+        if (isFollowing) {
+          newSet.add(creatorId);
+        } else {
+          newSet.delete(creatorId);
+        }
+        return newSet;
+      });
+    }
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U';
   };
 
-  // Combine featured (bot) content with real content
-  const allProjects = [...FEATURED_PROJECTS, ...realProjects.map(p => ({
-    ...p,
-    owner: p.profiles || { display_name: 'Unknown', avatar_url: null }
-  }))];
-
-  const allUsers = [...FEATURED_USERS, ...realUsers.filter(u => u.user_id !== userId)];
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-4">
+              <div className="h-16 bg-muted rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-2 mb-2">
-          <Users className="h-5 w-5 text-tech-blue" />
-          <h2 className="font-semibold text-lg">Community</h2>
-          <Badge variant="secondary" className="ml-auto">
-            {allUsers.length}+ creators
+    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            Community
+          </h3>
+          <Badge variant="secondary" className="text-xs">
+            {projects.length + creators.length} active
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Discover amazing projects and connect with developers
-        </p>
-      </div>
 
-      <Tabs defaultValue="trending" className="flex-1 flex flex-col">
-        <div className="px-4 pt-2">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="trending" className="text-xs">
-              <TrendingUp className="h-3 w-3 mr-1" />
-              Trending
+        <Tabs defaultValue="projects" className="w-full">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="projects" className="flex-1 text-xs">
+              <Star className="w-3 h-3 mr-1" />
+              Top Projects
             </TabsTrigger>
-            <TabsTrigger value="projects" className="text-xs">
-              <Code className="h-3 w-3 mr-1" />
-              Projects
-            </TabsTrigger>
-            <TabsTrigger value="creators" className="text-xs">
-              <Sparkles className="h-3 w-3 mr-1" />
+            <TabsTrigger value="creators" className="flex-1 text-xs">
+              <Users className="w-3 h-3 mr-1" />
               Creators
             </TabsTrigger>
           </TabsList>
-        </div>
 
-        <TabsContent value="trending" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-3">
-              {allProjects.slice(0, 6).map((project) => (
-                <Card key={project.id} className="overflow-hidden hover:border-tech-blue/50 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={project.owner?.avatar_url} />
-                        <AvatarFallback className="bg-tech-purple text-white text-xs">
-                          {getInitials(project.owner?.display_name || 'U')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-sm truncate">{project.title}</h3>
-                          {project.owner?.isBot && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">Featured</Badge>
-                          )}
+          <TabsContent value="projects">
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-3">
+                {projects.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Code className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No public projects yet</p>
+                    <p className="text-xs">Be the first to share!</p>
+                  </div>
+                ) : (
+                  projects.map((project) => (
+                    <div
+                      key={project.id}
+                      onClick={() => navigate(`/workspace/${project.id}`)}
+                      className="p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 cursor-pointer transition-all group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-tech-blue/20 to-bulb-glow/20 flex items-center justify-center flex-shrink-0">
+                          <BulbIcon className="w-5 h-5 text-bulb-glow" />
                         </div>
-                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                          {project.description}
-                        </p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="flex items-center text-xs text-muted-foreground">
-                            <Star className="h-3 w-3 mr-1 text-yellow-500" />
-                            {project.stars_count}
-                          </span>
-                          <span className="flex items-center text-xs text-muted-foreground">
-                            <GitFork className="h-3 w-3 mr-1" />
-                            {project.forks_count}
-                          </span>
-                          {project.preview_url && (
-                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs ml-auto">
-                              <ExternalLink className="h-3 w-3 mr-1" />
-                              Preview
-                            </Button>
-                          )}
-                        </div>
-                        <div className="flex gap-1 mt-2 flex-wrap">
-                          {project.tags?.slice(0, 3).map((tag: string) => (
-                            <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {tag}
-                            </Badge>
-                          ))}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm group-hover:text-primary transition-colors truncate">
+                            {project.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {project.description || 'No description'}
+                          </p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Avatar className="w-4 h-4">
+                                <AvatarImage src={project.owner.avatar_url || ''} />
+                                <AvatarFallback className="text-[8px]">
+                                  {getInitials(project.owner.display_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              {project.owner.display_name}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Star className="w-3 h-3 text-yellow-500" />
+                              {project.stars_count}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <GitFork className="w-3 h-3" />
+                              {project.forks_count}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        </TabsContent>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-        <TabsContent value="projects" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-3">
-              {allProjects.map((project) => (
-                <Card key={project.id} className="overflow-hidden hover:border-tech-blue/50 transition-colors">
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold text-sm mb-1">{project.title}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                      {project.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={project.owner?.avatar_url} />
-                          <AvatarFallback className="text-[10px]">
-                            {getInitials(project.owner?.display_name || 'U')}
+          <TabsContent value="creators">
+            <ScrollArea className="h-[300px]">
+              <div className="space-y-3">
+                {creators.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No creators yet</p>
+                    <p className="text-xs">Join the community!</p>
+                  </div>
+                ) : (
+                  creators.map((creator) => (
+                    <div
+                      key={creator.id}
+                      className="p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={creator.avatar_url || ''} />
+                          <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-sm">
+                            {getInitials(creator.display_name)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs text-muted-foreground">
-                          {project.owner?.display_name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Star className="h-3 w-3 text-yellow-500" />
-                        {project.stars_count}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-
-        <TabsContent value="creators" className="flex-1 m-0">
-          <ScrollArea className="h-full">
-            <div className="p-4 space-y-3">
-              {allUsers.map((user) => (
-                <Card key={user.id || user.user_id} className="overflow-hidden hover:border-tech-blue/50 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12 ring-2 ring-tech-blue/20">
-                        <AvatarImage src={user.avatar_url} />
-                        <AvatarFallback className="bg-tech-purple text-white">
-                          {getInitials(user.display_name || user.username || 'U')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-sm">{user.display_name}</h3>
-                          {user.isBot && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0">AI Creator</Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">@{user.username}</p>
-                        {user.bio && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{user.bio}</p>
-                        )}
-                        <div className="flex gap-1 mt-2">
-                          {(user.skills || []).slice(0, 3).map((skill: string) => (
-                            <Badge key={skill} variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {skill}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm truncate">{creator.display_name}</h4>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {creator.bio || `@${creator.username}`}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {creator.projects_count} projects
                             </Badge>
-                          ))}
+                            {creator.skills?.slice(0, 2).map(skill => (
+                              <Badge key={skill} variant="outline" className="text-[10px] px-1.5 py-0">
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
                         </div>
+                        {profile?.id !== creator.id && (
+                          <Button
+                            size="sm"
+                            variant={followedUsers.has(creator.id) ? "secondary" : "default"}
+                            className="h-7 text-xs"
+                            onClick={() => handleFollow(creator.id)}
+                          >
+                            <UserPlus className="w-3 h-3 mr-1" />
+                            {followedUsers.has(creator.id) ? 'Following' : 'Follow'}
+                          </Button>
+                        )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant={followedUsers.has(user.id || user.user_id) ? "secondary" : "default"}
-                        onClick={() => handleFollow(user.id || user.user_id)}
-                        className="shrink-0"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
-}
+};

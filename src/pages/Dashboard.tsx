@@ -382,13 +382,17 @@ export default function Dashboard() {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground mt-1 sm:mt-2">
+              <p className="text-muted-foreground mt-1 sm:mt-2 truncate">
                 Welcome back, {profile?.display_name || 'Developer'}! Ready to build something amazing?
               </p>
             </div>
-            <Button onClick={createNewProject} disabled={isCreating} className="flex items-center gap-2 w-full sm:w-auto">
+            <Button 
+              onClick={createNewProject} 
+              disabled={isCreating} 
+              className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 z-10"
+            >
               <Plus className="w-4 h-4" />
               {isCreating ? 'Creating...' : 'New Project'}
             </Button>
