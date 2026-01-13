@@ -184,11 +184,19 @@ export const ProjectSettingsModal = ({
     
     setDeleting(true);
     try {
-      // Delete project files first
-      await supabase
-        .from('project_files')
-        .delete()
-        .eq('project_id', projectId);
+      // Delete related data first
+      await Promise.all([
+        supabase.from('project_files').delete().eq('project_id', projectId),
+        supabase.from('project_stars').delete().eq('project_id', projectId),
+        supabase.from('project_commits').delete().eq('project_id', projectId),
+        supabase.from('project_packages').delete().eq('project_id', projectId),
+        supabase.from('project_env_vars').delete().eq('project_id', projectId),
+        supabase.from('project_analytics').delete().eq('project_id', projectId),
+        supabase.from('collaboration_sessions').delete().eq('project_id', projectId),
+        supabase.from('collaborations').delete().eq('project_id', projectId),
+        supabase.from('deployments').delete().eq('project_id', projectId),
+        supabase.from('workspace_sessions').delete().eq('project_id', projectId),
+      ]);
 
       // Delete project
       const { error } = await supabase
@@ -203,7 +211,14 @@ export const ProjectSettingsModal = ({
         description: 'Your project has been permanently deleted.',
       });
       
-      navigate('/dashboard');
+      // Close modal first, then navigate
+      onOpenChange(false);
+      onUpdate();
+      
+      // Small delay to ensure modal closes before navigation
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     } catch (error) {
       console.error('Error deleting project:', error);
       toast({
