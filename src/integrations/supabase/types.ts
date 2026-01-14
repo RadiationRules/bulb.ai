@@ -542,11 +542,13 @@ export type Database = {
       projects: {
         Row: {
           created_at: string
+          custom_subdomain: string | null
           description: string | null
           file_structure: Json | null
           forks_count: number | null
           id: string
           owner_id: string
+          preview_image: string | null
           preview_url: string | null
           repository_url: string | null
           settings: Json | null
@@ -558,11 +560,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_subdomain?: string | null
           description?: string | null
           file_structure?: Json | null
           forks_count?: number | null
           id?: string
           owner_id: string
+          preview_image?: string | null
           preview_url?: string | null
           repository_url?: string | null
           settings?: Json | null
@@ -574,11 +578,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_subdomain?: string | null
           description?: string | null
           file_structure?: Json | null
           forks_count?: number | null
           id?: string
           owner_id?: string
+          preview_image?: string | null
           preview_url?: string | null
           repository_url?: string | null
           settings?: Json | null
@@ -674,6 +680,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspace_sessions: {
         Row: {
           active_file: string | null
@@ -724,9 +751,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       collaboration_status: "pending" | "accepted" | "declined"
       notification_type:
         | "follow"
@@ -861,6 +895,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       collaboration_status: ["pending", "accepted", "declined"],
       notification_type: [
         "follow",
