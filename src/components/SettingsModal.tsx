@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Palette, Zap, User, Shield, Bell, Monitor, Code2, Cloud } from "lucide-react";
+import { Settings, Palette, Zap, User, Shield, Bell, Monitor, Code2, Cloud, Crown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
+import { AdminPanel } from "@/components/AdminPanel";
 
 interface SettingsModalProps {
   open: boolean;
@@ -22,6 +24,7 @@ interface SettingsModalProps {
 export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
   const { toast } = useToast();
   const { user, profile } = useAuth();
+  const { isAdmin } = useAdmin();
   const [darkMode, setDarkMode] = useState(true);
   const [animations, setAnimations] = useState(true);
   const [notifications, setNotifications] = useState(true);
@@ -167,7 +170,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
         </DialogHeader>
 
         <Tabs defaultValue="appearance" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4 lg:grid-cols-7' : 'grid-cols-3 lg:grid-cols-6'}`}>
             <TabsTrigger value="appearance" className="flex items-center space-x-2">
               <Palette className="h-4 w-4" />
               <span className="hidden sm:inline">Theme</span>
@@ -192,6 +195,12 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Security</span>
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="admin" className="flex items-center space-x-2 text-yellow-500">
+                <Crown className="h-4 w-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="appearance" className="space-y-6">
@@ -484,6 +493,13 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
               </div>
             </Card>
           </TabsContent>
+
+          {/* Admin Tab - Only visible to admins */}
+          {isAdmin && (
+            <TabsContent value="admin" className="space-y-6">
+              <AdminPanel />
+            </TabsContent>
+          )}
         </Tabs>
 
         <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-4">

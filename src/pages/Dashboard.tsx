@@ -381,7 +381,7 @@ export default function Dashboard() {
       
       <main className="container mx-auto px-4 pb-8 pt-24">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 relative z-50">
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
               <p className="text-muted-foreground mt-1 sm:mt-2 truncate">
@@ -391,7 +391,7 @@ export default function Dashboard() {
             <Button 
               onClick={createNewProject} 
               disabled={isCreating} 
-              className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 z-10"
+              className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0 relative z-50 bg-primary hover:bg-primary/90 shadow-lg"
             >
               <Plus className="w-4 h-4" />
               {isCreating ? 'Creating...' : 'New Project'}
