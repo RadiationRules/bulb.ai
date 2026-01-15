@@ -6,9 +6,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/use-toast';
 
 interface FileNode {
   name: string;
@@ -44,6 +44,9 @@ export const FileTree = ({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [renamingItem, setRenamingItem] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
+  const { toast } = useToast();
 
   // Build tree structure from flat file list
   const buildTree = (): FileNode[] => {
@@ -126,10 +129,75 @@ export const FileTree = ({
     setNewName('');
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, path: string, type: 'file' | 'folder') => {
+    e.stopPropagation();
+    setDraggedItem(path);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', path);
+    e.dataTransfer.setData('application/x-file-type', type);
+  };
+
+  const handleDragOver = (e: React.DragEvent, folderPath: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedItem && draggedItem !== folderPath && !draggedItem.startsWith(folderPath + '/')) {
+      setDragOverFolder(folderPath);
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolder(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetFolder: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolder(null);
+    
+    const sourcePath = e.dataTransfer.getData('text/plain');
+    
+    if (!sourcePath || sourcePath === targetFolder) {
+      setDraggedItem(null);
+      return;
+    }
+
+    // Don't allow dropping into self or child folders
+    if (sourcePath === targetFolder || targetFolder.startsWith(sourcePath + '/')) {
+      setDraggedItem(null);
+      return;
+    }
+
+    const fileName = sourcePath.split('/').pop();
+    const newPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
+
+    if (newPath && newPath !== sourcePath) {
+      onMoveFile(sourcePath, targetFolder);
+      toast({
+        title: 'File moved',
+        description: `${fileName} → ${targetFolder || 'root'}`,
+        duration: 2000
+      });
+    }
+    
+    setDraggedItem(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDragOverFolder(null);
+  };
+
   const renderNode = (node: FileNode, depth = 0) => {
     const isExpanded = expandedFolders.has(node.path);
     const isActive = activeFile === node.path;
     const isSelected = selectedItems.has(node.path);
+    const isDragOver = dragOverFolder === node.path;
+    const isBeingDragged = draggedItem === node.path;
 
     return (
       <div key={node.path}>
@@ -137,9 +205,17 @@ export const FileTree = ({
           className={cn(
             "group flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-all hover:bg-accent/70",
             isActive && "bg-primary/10 text-primary font-medium",
-            isSelected && "bg-accent"
+            isSelected && "bg-accent",
+            isDragOver && node.type === 'folder' && "bg-primary/20 ring-2 ring-primary ring-offset-1",
+            isBeingDragged && "opacity-50"
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          draggable={!renamingItem}
+          onDragStart={(e) => handleDragStart(e, node.path, node.type)}
+          onDragOver={(e) => node.type === 'folder' ? handleDragOver(e, node.path) : undefined}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => node.type === 'folder' ? handleDrop(e, node.path) : undefined}
+          onDragEnd={handleDragEnd}
           onClick={() => {
             if (node.type === 'folder') {
               toggleFolder(node.path);
@@ -237,9 +313,43 @@ export const FileTree = ({
     );
   };
 
+  // Handle drop on root (empty space)
+  const handleRootDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const sourcePath = e.dataTransfer.getData('text/plain');
+    
+    if (sourcePath && sourcePath.includes('/')) {
+      const fileName = sourcePath.split('/').pop();
+      onMoveFile(sourcePath, '');
+      toast({
+        title: 'File moved to root',
+        description: fileName,
+        duration: 2000
+      });
+    }
+    
+    setDraggedItem(null);
+    setDragOverFolder(null);
+  };
+
   return (
-    <div className="space-y-0.5">
+    <div 
+      className="space-y-0.5 min-h-[100px]"
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (draggedItem) {
+          setDragOverFolder('__root__');
+        }
+      }}
+      onDragLeave={() => setDragOverFolder(null)}
+      onDrop={handleRootDrop}
+    >
       {tree.map(node => renderNode(node))}
+      {dragOverFolder === '__root__' && draggedItem?.includes('/') && (
+        <div className="mx-2 p-2 border-2 border-dashed border-primary/50 rounded text-xs text-center text-muted-foreground">
+          Drop here to move to root
+        </div>
+      )}
     </div>
   );
 };

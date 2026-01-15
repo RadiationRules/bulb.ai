@@ -84,6 +84,9 @@ import {
   DialogHeader, 
   DialogTitle 
 } from '@/components/ui/dialog';
+import { ProjectPreview } from '@/components/ProjectPreview';
+import { ShareDialog } from '@/components/ShareDialog';
+import { ImageIcon } from 'lucide-react';
 
 interface ProjectFile {
   id: string;
@@ -554,7 +557,12 @@ export default function Workspace() {
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
-  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'community' | 'dev' | 'deploy' | 'review' | 'quality' | 'docs' | 'playground'>('copilot');
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'collab' | 'activity' | 'friends' | 'community' | 'dev' | 'deploy' | 'review' | 'quality' | 'docs' | 'playground' | 'preview'>('copilot');
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [copilotImages, setCopilotImages] = useState<string[]>([]);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -595,6 +603,52 @@ export default function Workspace() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeFile, fileContent, isNewProject]);
+
+  // Auto-save effect with debounce
+  useEffect(() => {
+    if (!project || !activeFile || isNewProject) return;
+
+    // Clear existing timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    // Set new timer for 2 seconds
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      
+      try {
+        const fileToUpdate = files.find(f => f.file_path === activeFile);
+        if (fileToUpdate) {
+          const { error } = await supabase
+            .from('project_files')
+            .update({ file_content: fileContent })
+            .eq('id', fileToUpdate.id);
+
+          if (!error) {
+            setFiles(files.map(f => 
+              f.file_path === activeFile 
+                ? { ...f, file_content: fileContent }
+                : f
+            ));
+            setAutoSaveStatus('saved');
+            
+            // Reset to idle after 2 seconds
+            setTimeout(() => setAutoSaveStatus('idle'), 2000);
+          }
+        }
+      } catch (error) {
+        console.error('Auto-save error:', error);
+        setAutoSaveStatus('idle');
+      }
+    }, 2000);
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [fileContent, activeFile, project, isNewProject]);
 
   useEffect(() => {
     // Wait for auth to finish loading before redirecting
@@ -1231,7 +1285,11 @@ Start editing the files to build your project!`,
             size="sm" 
             onClick={handleUndo}
             disabled={historyIndex <= 0}
-            className={cn(historyIndex <= 0 && "opacity-40", "hidden sm:flex")}
+            className={cn(
+              historyIndex <= 0 && "opacity-40", 
+              historyIndex > 0 && "glow-white",
+              "hidden sm:flex"
+            )}
             title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-4 h-4" />
@@ -1241,11 +1299,33 @@ Start editing the files to build your project!`,
             size="sm" 
             onClick={handleRedo}
             disabled={historyIndex >= history.length - 1}
-            className={cn(historyIndex >= history.length - 1 && "opacity-40", "hidden sm:flex")}
+            className={cn(
+              historyIndex >= history.length - 1 && "opacity-40", 
+              historyIndex < history.length - 1 && "glow-white",
+              "hidden sm:flex"
+            )}
             title="Redo (Ctrl+Y)"
           >
             <Redo2 className="w-4 h-4" />
           </Button>
+          {autoSaveStatus !== 'idle' && (
+            <span className={cn(
+              "text-xs px-2 py-1 rounded-md ml-2 hidden sm:inline-flex items-center gap-1",
+              autoSaveStatus === 'saving' && "text-muted-foreground",
+              autoSaveStatus === 'saved' && "text-green-500"
+            )}>
+              {autoSaveStatus === 'saving' ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  ✓ Saved
+                </>
+              )}
+            </span>
+          )}
           <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
           <Button 
             variant="ghost" 
@@ -1266,13 +1346,7 @@ Start editing the files to build your project!`,
             <Download className="w-4 h-4" />
           </Button>
           <div className="w-px h-6 bg-border mx-1 hidden md:block" />
-          <Button variant="outline" size="sm" onClick={() => {
-            // Generate realistic deployment URL with random chars
-            const randomId = Math.random().toString(36).substring(2, 10);
-            const deployUrl = `https://bulbai-${randomId}-${profile?.username || 'user'}.vercel.app`;
-            navigator.clipboard.writeText(deployUrl);
-            toast({ title: "Deploy link copied!", description: deployUrl, duration: 1500 });
-          }}>
+          <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
             <Share2 className="w-3 h-3 md:w-4 md:h-4 md:mr-2" />
             <span className="hidden md:inline">Share</span>
           </Button>
@@ -1293,15 +1367,7 @@ Start editing the files to build your project!`,
             variant="default" 
             size="sm" 
             className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700"
-            onClick={() => {
-              // Redirect to Vercel for real deployment
-              window.open('https://vercel.com/new?utm_source=bulbai&utm_campaign=deploy', '_blank');
-              toast({ 
-                title: "🚀 Redirecting to Vercel", 
-                description: "Sign in to deploy your project live!",
-                duration: 3000
-              });
-            }}
+            onClick={() => setRightPanelTab('deploy')}
           >
             <Rocket className="w-4 h-4 mr-2" />
             Deploy
@@ -1473,6 +1539,10 @@ Start editing the files to build your project!`,
                     <TabsTrigger value="friends" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                       <UserPlus className="w-3.5 h-3.5" />
                     </TabsTrigger>
+                    <TabsTrigger value="preview" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Monitor className="w-3.5 h-3.5 mr-1.5" />
+                      Preview
+                    </TabsTrigger>
                   </TabsList>
                 </ScrollArea>
               </Tabs>
@@ -1558,6 +1628,12 @@ Start editing the files to build your project!`,
                 <CodePlayground 
                   initialCode={fileContent}
                   language={getLanguageFromFile(activeFile || '')}
+                />
+              )}
+              {rightPanelTab === 'preview' && (
+                <ProjectPreview
+                  files={files.reduce((acc, f) => ({ ...acc, [f.file_path]: f.file_content }), {})}
+                  projectName={project?.title || 'Preview'}
                 />
               )}
             </div>
@@ -1689,6 +1765,15 @@ Start editing the files to build your project!`,
           else if (panel === 'activity') setRightPanelTab('activity');
           else if (panel === 'review') setRightPanelTab('review');
         }}
+      />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        projectUrl={`https://bulbai.app/p/${project?.id || ''}`}
+        projectName={project?.title || 'My Project'}
+        isPublic={project?.visibility === 'public'}
       />
     </div>
   );
