@@ -944,3 +944,48 @@
   border-radius: 50%;
   animation: particle-float 15s ease-in-out infinite;
 }
+
+/* ========================================
+   WHITE GLOW EFFECT (Undo/Redo)
+   ======================================== */
+@keyframes glow-white-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px hsl(0 0% 100% / 0.3), 0 0 8px hsl(0 0% 100% / 0.2);
+  }
+  50% {
+    box-shadow: 0 0 8px hsl(0 0% 100% / 0.5), 0 0 16px hsl(0 0% 100% / 0.3);
+  }
+}
+
+.glow-white {
+  animation: glow-white-pulse 2s ease-in-out infinite;
+}
+
+/* ========================================
+   DRAG AND DROP OVERLAY
+   ======================================== */
+.drag-over {
+  background: hsl(var(--primary) / 0.1) !important;
+  border: 2px dashed hsl(var(--primary)) !important;
+  border-radius: 8px;
+}
+
+.drag-target {
+  position: relative;
+}
+
+.drag-target::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--primary) / 0.15);
+  border: 2px dashed hsl(var(--primary));
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.drag-target.drag-active::after {
+  opacity: 1;
+}
