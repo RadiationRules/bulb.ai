@@ -989,3 +989,17 @@
 .drag-target.drag-active::after {
   opacity: 1;
 }
+
+/* ========================================
+   CONFETTI ANIMATION
+   ======================================== */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}

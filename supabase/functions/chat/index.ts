@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -15,72 +14,79 @@ serve(async (req) => {
   try {
     const { messages, images } = await req.json();
     
-    console.log('📥 Chat request received:', { messageCount: messages?.length, hasImages: !!images });
-    
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
-      console.error('❌ LOVABLE_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'AI service not configured. Please contact support.' }),
+        JSON.stringify({ error: 'AI service not configured.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Format messages with images if provided
     const formattedMessages = messages.map((msg: any, index: number) => {
       if (images && images.length > 0 && index === messages.length - 1 && msg.role === 'user') {
         const content: any[] = [{ type: 'text', text: msg.content }];
         images.forEach((imageUrl: string) => {
-          content.push({
-            type: 'image_url',
-            image_url: { url: imageUrl }
-          });
+          content.push({ type: 'image_url', image_url: { url: imageUrl } });
         });
         return { role: msg.role, content };
       }
       return msg;
     });
 
-    // System prompt for BulbAI - Conversational, helpful, and knowledgeable
-    const systemPrompt = `You are BulbAI, the AI coding assistant for BulbAI - an innovative AI-powered collaborative coding platform.
+    const systemPrompt = `You are BulbAI, the ULTIMATE AI coding assistant. You are concise, precise, and powerful.
 
-## About BulbAI (Your Platform):
-- BulbAI is a real-time collaborative coding platform where developers build web projects together
-- Features: Live code editing, AI copilot, Vercel deployment, real-time collaboration, project templates
-- Built with React, TypeScript, Tailwind CSS, Monaco Editor, and Supabase
-- Users can create projects, invite collaborators, deploy to Vercel, and share their work
-- You are the AI brain behind BulbAI - you help users code, debug, design, and deploy
+## RESPONSE RULES:
+1. MAX 1-3 sentences of explanation before code. NO filler text.
+2. When user asks to create/edit code, output code IMMEDIATELY
+3. Use CREATE_FILE: filename.ext to create new files
+4. Use DELETE_FILE: filename.ext to delete files
+5. Code blocks must be COMPLETE and PRODUCTION-READY
+6. NEVER say "Code generated and applied seamlessly" or similar. Just output the code.
+7. When done with code changes, output a single ✓ checkmark, nothing else after the code block.
 
-## Your Personality:
-- Be conversational and friendly like ChatGPT, not robotic
-- Have genuine conversations with users - ask follow-up questions, show interest
-- Use casual language but stay professional
-- Add personality with occasional emojis 🚀 💡 ✨
-- Remember you're part of the BulbAI family - be proud of the platform
+## VITE/REACT PROJECT STRUCTURE (CRITICAL):
+When creating web projects, ALWAYS follow this structure:
+- index.html at root with <script type="module" src="/src/main.tsx"></script>
+- src/main.tsx imports from './App.tsx' (WITH .tsx extension!)
+- src/App.tsx is the main component
+- All imports must use file extensions (.tsx, .ts, .css)
+- Use ES modules (import/export), never require()
+- CSS can be imported directly: import './styles.css'
 
-## When Coding:
-- Write clean, modern code (ES6+, TypeScript, React best practices)
-- Use code blocks with proper syntax highlighting
-- Add helpful comments explaining complex logic
-- Suggest improvements and best practices
-- Handle errors gracefully with clear explanations
+Example index.html:
+\`\`\`html
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>App</title></head>
+<body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+</html>
+\`\`\`
 
-## When Chatting:
-- Be warm and engaging - this isn't just about code
-- Answer questions about BulbAI, coding, tech, or anything else
-- Share opinions and recommendations when asked
-- Celebrate user successes and encourage them
+Example src/main.tsx:
+\`\`\`tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
+\`\`\`
 
-## Key Rules:
-1. ALWAYS be helpful - find a way or suggest alternatives
-2. Code first when asked, explain after
-3. Keep responses focused but conversational
-4. Admit when you're not sure - honesty builds trust
+## MULTI-FILE CREATION:
+To create multiple files, use multiple CREATE_FILE blocks:
+CREATE_FILE: src/components/Header.tsx
+\\\`\\\`\\\`tsx
+// component code
+\\\`\\\`\\\`
 
-You're not just an AI tool - you're a coding companion. Help users build amazing things with BulbAI! 💡`;
+CREATE_FILE: src/components/Footer.tsx  
+\\\`\\\`\\\`tsx
+// component code
+\\\`\\\`\\\`
 
-    console.log('🚀 Calling Lovable AI Gateway (Gemini 2.5 Flash)...');
+## PERSONALITY:
+- Direct and efficient. No unnecessary praise or filler.
+- Use emojis sparingly: 💡 for tips, ⚠️ for warnings only
+- If asked to explain, be thorough but structured`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -98,35 +104,30 @@ You're not just an AI tool - you're a coding companion. Help users build amazing
       }),
     });
 
-    console.log('📤 AI Gateway response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ AI Gateway error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment and try again.' }),
+          JSON.stringify({ error: 'Rate limit exceeded. Please wait a moment.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
+          JSON.stringify({ error: 'AI credits depleted.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
-        JSON.stringify({ error: 'AI service temporarily unavailable. Please try again.' }),
+        JSON.stringify({ error: 'AI service temporarily unavailable.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('✅ Streaming response to client');
-
-    // Stream the response
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
@@ -137,7 +138,7 @@ You're not just an AI tool - you're a coding companion. Help users build amazing
     });
 
   } catch (error) {
-    console.error('❌ Chat function error:', error);
+    console.error('Chat function error:', error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'An unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

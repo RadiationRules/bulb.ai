@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -10,11 +10,52 @@ interface Message {
 
 const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
 
-export const useChat = () => {
+export const useChat = (projectId?: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadedRef = useRef(false);
+
+  // Load persisted messages on mount
+  useEffect(() => {
+    if (!projectId || loadedRef.current) return;
+    loadedRef.current = true;
+
+    const loadMessages = async () => {
+      const { data } = await supabase
+        .from('chat_messages')
+        .select('role, content')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+      if (data && data.length > 0) {
+        setMessages(data.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+      }
+    };
+
+    loadMessages();
+  }, [projectId]);
+
+  // Persist a message to Supabase
+  const persistMessage = async (role: 'user' | 'assistant', content: string) => {
+    if (!projectId) return;
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('chat_messages').insert({
+        project_id: projectId,
+        user_id: user.id,
+        role,
+        content
+      });
+    } catch (err) {
+      console.error('Failed to persist message:', err);
+    }
+  };
 
   const streamChat = async (userMessage: string, displayMessage?: string, images?: string[]) => {
     try {
@@ -29,13 +70,13 @@ export const useChat = () => {
       setIsLoading(true);
       setCurrentFile(null);
 
+      // Persist user message
+      persistMessage('user', displayMessage || validatedMessage);
+
       abortControllerRef.current = new AbortController();
       
       const messagesWithContext = [...messages, { role: 'user' as const, content: userMessage }];
       
-      console.log('📤 Sending to GPT-5...');
-      
-      // Get session for auth header
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -43,7 +84,7 @@ export const useChat = () => {
       }
       
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        `https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat`,
         {
           method: 'POST',
           headers: {
@@ -58,24 +99,16 @@ export const useChat = () => {
         }
       );
 
-      console.log('📥 Response:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-        }
-        if (response.status === 402) {
-          throw new Error('AI credits depleted. Please add credits to continue.');
-        }
+        if (response.status === 429) throw new Error('Rate limit exceeded. Please wait.');
+        if (response.status === 402) throw new Error('AI credits depleted.');
         
         throw new Error(errorData.error || `API Error: ${response.status}`);
       }
 
-      if (!response.body) {
-        throw new Error('No response body');
-      }
+      if (!response.body) throw new Error('No response body');
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -92,7 +125,6 @@ export const useChat = () => {
         });
       };
 
-      // Detect file being coded for animation
       const detectFile = (text: string) => {
         const createMatch = text.match(/CREATE_FILE:\s*([^\n]+)/);
         const codeMatch = text.match(/```(\w+)?[\s\S]*?```/);
@@ -149,12 +181,16 @@ export const useChat = () => {
         }
       }
 
-      console.log('✅ Complete:', assistantContent.length, 'chars');
+      // Persist assistant response
+      if (assistantContent) {
+        persistMessage('assistant', assistantContent);
+      }
+
       setIsLoading(false);
       setCurrentFile(null);
       abortControllerRef.current = null;
     } catch (error: any) {
-      console.error('❌ Error:', error);
+      console.error('Chat error:', error);
       setIsLoading(false);
       setCurrentFile(null);
       abortControllerRef.current = null;
@@ -167,12 +203,21 @@ export const useChat = () => {
       
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `⚠️ ${errorMsg}\n\nPlease try again.` }
+        { role: 'assistant', content: `⚠️ ${errorMsg}` }
       ]);
     }
   };
 
-  const clearMessages = useCallback(() => setMessages([]), []);
+  const clearMessages = useCallback(async () => {
+    setMessages([]);
+    // Also clear persisted messages
+    if (projectId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('chat_messages').delete().eq('project_id', projectId).eq('user_id', user.id);
+      }
+    }
+  }, [projectId]);
   
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
