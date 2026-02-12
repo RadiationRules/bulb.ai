@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 
+export type AiStage = 'idle' | 'reading' | 'thinking' | 'coding' | 'done';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -14,6 +16,8 @@ export const useChat = (projectId?: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
+  const [aiStage, setAiStage] = useState<AiStage>('idle');
+  const [stageDetail, setStageDetail] = useState<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadedRef = useRef(false);
 
@@ -73,6 +77,8 @@ export const useChat = (projectId?: string) => {
       setMessages(prev => [...prev, newUserMessage]);
       setIsLoading(true);
       setCurrentFile(null);
+      setAiStage('reading');
+      setStageDetail('Analyzing your request...');
 
       // Persist user message
       persistMessage('user', displayMessage || validatedMessage);
@@ -129,13 +135,26 @@ export const useChat = (projectId?: string) => {
         });
       };
 
+      let hasStartedCoding = false;
       const detectFile = (text: string) => {
         const createMatch = text.match(/CREATE_FILE:\s*([^\n]+)/);
         const codeMatch = text.match(/```(\w+)?[\s\S]*?```/);
         if (createMatch) {
-          setCurrentFile(createMatch[1].trim());
-        } else if (codeMatch && !currentFile) {
+          const fname = createMatch[1].trim();
+          setCurrentFile(fname);
+          setAiStage('coding');
+          setStageDetail(`Writing ${fname}`);
+          hasStartedCoding = true;
+        } else if (codeMatch && !hasStartedCoding) {
           setCurrentFile('code');
+          setAiStage('coding');
+          setStageDetail('Writing code...');
+          hasStartedCoding = true;
+        }
+        // Transition from reading -> thinking after first tokens
+        if (!hasStartedCoding && text.length > 20 && aiStage !== 'thinking') {
+          setAiStage('thinking');
+          setStageDetail('Planning approach...');
         }
       };
 
@@ -190,6 +209,9 @@ export const useChat = (projectId?: string) => {
         persistMessage('assistant', assistantContent);
       }
 
+      setAiStage('done');
+      setStageDetail('Complete');
+      setTimeout(() => { setAiStage('idle'); setStageDetail(''); }, 2000);
       setIsLoading(false);
       setCurrentFile(null);
       abortControllerRef.current = null;
@@ -197,6 +219,8 @@ export const useChat = (projectId?: string) => {
       console.error('Chat error:', error);
       setIsLoading(false);
       setCurrentFile(null);
+      setAiStage('idle');
+      setStageDetail('');
       abortControllerRef.current = null;
       
       if (error.name === 'AbortError') return;
@@ -233,6 +257,8 @@ export const useChat = (projectId?: string) => {
     messages,
     isLoading,
     currentFile,
+    aiStage,
+    stageDetail,
     sendMessage: streamChat,
     clearMessages,
     stopGeneration,

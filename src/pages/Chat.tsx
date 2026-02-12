@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useChat } from '@/hooks/useChat';
+import { useChat, type AiStage } from '@/hooks/useChat';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,7 +10,7 @@ import { BulbIcon } from '@/components/BulbIcon';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { cn } from '@/lib/utils';
 import {
-  ArrowLeft, Send, X, RotateCcw, Sparkles, Bot, Code2, ImagePlus, Trash2
+  ArrowLeft, Send, X, RotateCcw, Sparkles, Bot, Code2, ImagePlus, Trash2, Eye, Brain, Loader2, CheckCircle2
 } from 'lucide-react';
 
 const CHAT_SUGGESTIONS = [
@@ -62,7 +62,7 @@ const RenderContent = ({ content }: { content: string }) => {
 export default function Chat() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat('global-chat');
+  const { messages, isLoading, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat('global-chat');
   const [input, setInput] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -168,18 +168,33 @@ export default function Chat() {
 
           {isLoading && messages[messages.length - 1]?.role === 'user' && (
             <div className="flex gap-3 animate-fade-in">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center flex-shrink-0 animate-pulse shadow-md">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center flex-shrink-0 shadow-md">
                 <Bot className="w-4 h-4 text-white" />
               </div>
               <div className="rounded-2xl px-4 py-3 bg-card border border-border/50">
-                <div className="flex items-center gap-2">
-                  <div className="flex gap-1">
-                    {[0, 1, 2].map(j => (
-                      <span key={j} className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: `${j * 150}ms` }} />
-                    ))}
-                  </div>
-                  <span className="text-xs text-muted-foreground">Generating response...</span>
+                {/* Stage pipeline */}
+                <div className="flex items-center gap-2 mb-2">
+                  {(['reading', 'thinking', 'coding'] as AiStage[]).map((s, i) => {
+                    const icons = { reading: Eye, thinking: Brain, coding: Code2 };
+                    const colors = { reading: 'text-blue-400', thinking: 'text-purple-400', coding: 'text-green-400' };
+                    const StageIcon = icons[s];
+                    const isActive = s === aiStage;
+                    const isPast = (['reading', 'thinking', 'coding'].indexOf(aiStage) > i) || aiStage === 'done';
+                    return (
+                      <div key={s} className="flex items-center gap-1">
+                        {i > 0 && <div className={cn("w-4 h-0.5 rounded-full", isPast ? 'bg-primary' : 'bg-border')} />}
+                        <div className={cn(
+                          "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium",
+                          isActive ? colors[s] : isPast ? 'text-primary' : 'text-muted-foreground'
+                        )}>
+                          {isActive ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <StageIcon className="w-2.5 h-2.5" />}
+                          <span className="capitalize">{s}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+                <span className="text-xs text-muted-foreground">{stageDetail || 'Working...'}</span>
               </div>
             </div>
           )}
