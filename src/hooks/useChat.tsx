@@ -23,10 +23,14 @@ export const useChat = (projectId?: string) => {
     loadedRef.current = true;
 
     const loadMessages = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
       const { data } = await supabase
         .from('chat_messages')
         .select('role, content')
         .eq('project_id', projectId)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: true })
         .limit(100);
 

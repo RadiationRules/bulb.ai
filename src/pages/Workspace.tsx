@@ -349,7 +349,7 @@ const CopilotPanel = ({
                     <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                   </div>
                   <span className="text-sm font-medium text-primary">
-                    {codingFile ? `Coding ${codingFile}...` : currentOperation || 'Thinking...'}
+                    {codingFile ? `Writing ${codingFile}...` : currentOperation || 'Working on it...'}
                   </span>
                 </div>
               </div>
