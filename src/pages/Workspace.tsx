@@ -51,6 +51,7 @@ import { LiveCodeOverlay } from '@/components/LiveCodeOverlay';
 import { AICodingScreen } from '@/components/AICodingScreen';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
+import { AiActivityIndicator } from '@/components/AiActivityIndicator';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -102,11 +103,13 @@ const CopilotPanel = ({
   projectId?: string;
 }) => {
   const [input, setInput] = useState('');
-  const { messages, isLoading, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
+  const { messages, isLoading, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
   const [currentOperation, setCurrentOperation] = useState<string | null>(null);
+  const [fileChanges, setFileChanges] = useState<Map<string, { oldContent: string; newContent: string; type: 'create' | 'update' | 'delete' }>>(new Map());
+  const [undoneFiles, setUndoneFiles] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -149,6 +152,8 @@ const CopilotPanel = ({
   };
 
   const parseAndApplyAIResponse = (response: string) => {
+    const newChanges = new Map(fileChanges);
+    
     // Handle multiple CREATE_FILE blocks
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
@@ -158,9 +163,16 @@ const CopilotPanel = ({
         setCurrentOperation(`Creating ${filename}`);
         onCodingFile(filename);
         const ext = filename.split('.').pop() || 'txt';
+        const existingFile = files.find(f => f.file_path === filename);
+        newChanges.set(filename, { 
+          oldContent: existingFile?.file_content || '', 
+          newContent: content, 
+          type: existingFile ? 'update' : 'create' 
+        });
         onCreateFile(filename, content, ext);
         toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
       });
+      setFileChanges(newChanges);
       setCurrentOperation(null);
       onCodingFile(null);
       return;
@@ -175,6 +187,9 @@ const CopilotPanel = ({
         const ext = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '';
+        const existingFile = files.find(f => f.file_path === filename);
+        newChanges.set(filename, { oldContent: existingFile?.file_content || '', newContent: content, type: existingFile ? 'update' : 'create' });
+        setFileChanges(newChanges);
         onCreateFile(filename, content, ext);
         toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
         onCodingFile(null);
@@ -186,7 +201,14 @@ const CopilotPanel = ({
     if (response.includes('DELETE_FILE:')) {
       const matches = response.matchAll(/DELETE_FILE:\s*(\S+)/g);
       const filenames = Array.from(matches).map(m => m[1]);
-      filenames.forEach(f => onDeleteFile(f));
+      filenames.forEach(f => {
+        const existingFile = files.find(file => file.file_path === f);
+        if (existingFile) {
+          newChanges.set(f, { oldContent: existingFile.file_content, newContent: '', type: 'delete' });
+        }
+        onDeleteFile(f);
+      });
+      setFileChanges(newChanges);
       if (filenames.length) {
         toast({ title: '✓', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
       }
@@ -198,10 +220,33 @@ const CopilotPanel = ({
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
       onCodingFile(activeFile);
+      newChanges.set(activeFile, { oldContent: fileContent, newContent, type: 'update' });
+      setFileChanges(newChanges);
       onUpdateFile(newContent);
       toast({ title: '✓', description: activeFile, duration: 1500 });
       onCodingFile(null);
     }
+  };
+
+  const handleUndoFile = (filePath: string) => {
+    const change = fileChanges.get(filePath);
+    if (!change) return;
+    if (change.type === 'create') {
+      onDeleteFile(filePath);
+    } else if (change.type === 'update') {
+      onUpdateFile(change.oldContent);
+    }
+    setUndoneFiles(prev => new Set(prev).add(filePath));
+    toast({ title: 'Undone', description: filePath, duration: 1500 });
+  };
+
+  const handleKeepFile = (filePath: string) => {
+    setFileChanges(prev => {
+      const next = new Map(prev);
+      next.delete(filePath);
+      return next;
+    });
+    toast({ title: '✓ Kept', description: filePath, duration: 1500 });
   };
 
   return (
@@ -252,14 +297,16 @@ const CopilotPanel = ({
           {messages.map((message, index) => {
             let displayContent = message.content;
             let operationBadge = null;
+            let changedFiles: string[] = [];
             
             if (message.role === "assistant") {
               if (message.content.includes('CREATE_FILE:')) {
                 const matches = Array.from(message.content.matchAll(/CREATE_FILE:\s*(\S+)/g));
                 if (matches.length) {
+                  changedFiles = matches.map(m => m[1]);
                   operationBadge = (
-                    <Badge className="mb-2 bg-green-600 text-white animate-fade-in border-0">
-                      ✓ Created {matches.map(m => m[1]).join(', ')}
+                    <Badge className="mb-2 bg-primary/20 text-primary animate-fade-in border border-primary/30">
+                      ✓ Created {changedFiles.join(', ')}
                     </Badge>
                   );
                   displayContent = displayContent.replace(/CREATE_FILE:\s*\S+/g, '').trim();
@@ -268,8 +315,9 @@ const CopilotPanel = ({
               if (message.content.includes('DELETE_FILE:')) {
                 const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
                 if (match) {
+                  changedFiles = [match[1]];
                   operationBadge = (
-                    <Badge className="mb-2 bg-red-600 text-white animate-fade-in border-0">
+                    <Badge className="mb-2 bg-destructive/20 text-destructive animate-fade-in border border-destructive/30">
                       ✓ Deleted {match[1]}
                     </Badge>
                   );
@@ -277,31 +325,25 @@ const CopilotPanel = ({
                 }
               }
               
-              // Clean code blocks
               if (displayContent.includes('```')) {
                 const beforeCode = displayContent.split('```')[0].trim();
                 const hasCode = /```[\s\S]*?```/.test(displayContent);
-                
-                if (!operationBadge && hasCode) {
+                if (!operationBadge && hasCode && activeFile) {
+                  changedFiles = [activeFile];
                   operationBadge = (
-                    <Badge className="mb-2 bg-blue-600 text-white animate-fade-in border-0">
-                      <Code className="w-3 h-3 mr-1 inline" /> ✓ Applied
+                    <Badge className="mb-2 bg-primary/20 text-primary animate-fade-in border border-primary/30">
+                      <Code className="w-3 h-3 mr-1 inline" /> ✓ Applied to {activeFile}
                     </Badge>
                   );
                 }
-                
                 displayContent = beforeCode || '✓';
               }
             }
             
+            const isLatestAssistant = message.role === 'assistant' && index === messages.length - 1;
+            
             return (
-              <div
-                key={index}
-                className={cn(
-                  "flex gap-4 animate-fade-in",
-                  message.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
+              <div key={index} className={cn("flex gap-4 animate-fade-in", message.role === "user" ? "justify-end" : "justify-start")}>
                 {message.role === "assistant" && (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
                     <Bot className="w-5 h-5 text-white" />
@@ -309,18 +351,49 @@ const CopilotPanel = ({
                 )}
                 <div className="flex-1 max-w-[85%]">
                   {operationBadge}
-                  <div
-                    className={cn(
-                      "rounded-2xl px-5 py-3 shadow-md",
-                      message.role === "user"
-                        ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground ml-auto"
-                        : "bg-gradient-to-br from-card to-card/80 border border-primary/10"
-                    )}
-                  >
+                  <div className={cn(
+                    "rounded-2xl px-5 py-3 shadow-md",
+                    message.role === "user"
+                      ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground ml-auto"
+                      : "bg-gradient-to-br from-card to-card/80 border border-primary/10"
+                  )}>
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
-                  {/* Suggestion chips after assistant responses */}
-                  {message.role === 'assistant' && index === messages.length - 1 && !isLoading && (
+                  
+                  {/* Keep / Undo buttons per file */}
+                  {message.role === 'assistant' && changedFiles.length > 0 && !isLoading && (
+                    <div className="mt-2 space-y-1.5">
+                      {changedFiles.map(fp => {
+                        const isUndone = undoneFiles.has(fp);
+                        const isKept = !fileChanges.has(fp) && !isUndone;
+                        return (
+                          <div key={fp} className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all",
+                            isUndone ? "border-destructive/30 bg-destructive/5 opacity-60" : isKept ? "border-primary/30 bg-primary/5" : "border-border bg-card/50"
+                          )}>
+                            <File className="w-3 h-3 text-muted-foreground" />
+                            <span className="font-mono truncate flex-1">{fp}</span>
+                            {isUndone ? (
+                              <span className="text-destructive font-medium">Undone</span>
+                            ) : isKept ? (
+                              <span className="text-primary font-medium">✓ Kept</span>
+                            ) : (
+                              <div className="flex gap-1">
+                                <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => handleKeepFile(fp)}>
+                                  Keep
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" onClick={() => handleUndoFile(fp)}>
+                                  <Undo2 className="w-3 h-3 mr-1" /> Undo
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  {isLatestAssistant && !isLoading && (
                     <SuggestionChips 
                       suggestions={['Add more features', 'Fix any bugs', 'Improve styling', 'Add tests']} 
                       onSelect={handleSuggestionClick} 
@@ -336,24 +409,9 @@ const CopilotPanel = ({
             );
           })}
           
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
-            <div className="flex gap-4 animate-fade-in">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg animate-pulse">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-              <div className="rounded-2xl px-5 py-3 bg-gradient-to-br from-card to-card/80 border border-primary/10 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                  </div>
-                  <span className="text-sm font-medium text-primary">
-                    {codingFile ? `Writing ${codingFile}...` : currentOperation || 'Working on it...'}
-                  </span>
-                </div>
-              </div>
-            </div>
+          {/* Live AI activity indicator */}
+          {isLoading && (
+            <AiActivityIndicator stage={aiStage} detail={stageDetail} />
           )}
         </div>
       </ScrollArea>
