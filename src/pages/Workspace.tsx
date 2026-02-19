@@ -535,12 +535,95 @@ export default function Workspace() {
       const defaultFiles = [
         {
           id: 'temp-1', file_path: 'index.html',
-          file_content: `<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>My BulbAI Project</title>\n    <style>\n        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }\n        .container { max-width: 600px; background: white; padding: 3rem; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }\n        h1 { color: #2563eb; margin: 0 0 1rem 0; }\n        p { color: #64748b; line-height: 1.6; }\n    </style>\n</head>\n<body>\n    <div class="container">\n        <h1>✨ Welcome to BulbAI</h1>\n        <p>Start building something amazing!</p>\n    </div>\n</body>\n</html>`,
+          file_content: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My BulbAI Project</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>✨ Welcome to BulbAI</h1>
+        <p>Start building something amazing!</p>
+        <button id="actionBtn">Click Me</button>
+    </div>
+    <script src="script.js"><\/script>
+</body>
+</html>`,
           file_type: 'html'
         },
         {
-          id: 'temp-2', file_path: 'README.md',
-          file_content: `# My BulbAI Project\n\nCreated with BulbAI.\n\n## Getting Started\n\nEdit files to build your project!`,
+          id: 'temp-2', file_path: 'style.css',
+          file_content: `* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.container {
+    max-width: 600px;
+    background: white;
+    padding: 3rem;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+h1 {
+    color: #2563eb;
+    margin-bottom: 1rem;
+}
+
+p {
+    color: #64748b;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #1d4ed8;
+}`,
+          file_type: 'css'
+        },
+        {
+          id: 'temp-3', file_path: 'script.js',
+          file_content: `// BulbAI Project - JavaScript
+document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('actionBtn');
+    let clicks = 0;
+
+    btn.addEventListener('click', () => {
+        clicks++;
+        btn.textContent = \`Clicked \${clicks} time\${clicks !== 1 ? 's' : ''}\`;
+    });
+});`,
+          file_type: 'javascript'
+        },
+        {
+          id: 'temp-4', file_path: 'README.md',
+          file_content: `# My BulbAI Project\n\nCreated with BulbAI.\n\n## Files\n\n- \`index.html\` — Main page\n- \`style.css\` — Styles\n- \`script.js\` — JavaScript\n\n## Getting Started\n\nEdit files to build your project!`,
           file_type: 'markdown'
         }
       ];
