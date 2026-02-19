@@ -52,6 +52,7 @@ import { AICodingScreen } from '@/components/AICodingScreen';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
+import { FileChangePanel } from '@/components/FileChangePanel';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -90,7 +91,7 @@ const AI_SUGGESTIONS = [
 
 // Copilot Panel
 const CopilotPanel = ({ 
-  activeFile, fileContent, files, onUpdateFile, onCreateFile, onDeleteFile, codingFile, onCodingFile, projectId
+  activeFile, fileContent, files, onUpdateFile, onCreateFile, onDeleteFile, codingFile, onCodingFile, projectId, onSelectFile
 }: { 
   activeFile: string | null;
   fileContent: string;
@@ -101,6 +102,7 @@ const CopilotPanel = ({
   codingFile: string | null;
   onCodingFile: (file: string | null) => void;
   projectId?: string;
+  onSelectFile: (path: string) => void;
 }) => {
   const [input, setInput] = useState('');
   const { messages, isLoading, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
@@ -360,37 +362,15 @@ const CopilotPanel = ({
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
                   
-                  {/* Keep / Undo buttons per file */}
+                  {/* Keep / Undo with diff via FileChangePanel */}
                   {message.role === 'assistant' && changedFiles.length > 0 && !isLoading && (
-                    <div className="mt-2 space-y-1.5">
-                      {changedFiles.map(fp => {
-                        const isUndone = undoneFiles.has(fp);
-                        const isKept = !fileChanges.has(fp) && !isUndone;
-                        return (
-                          <div key={fp} className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all",
-                            isUndone ? "border-destructive/30 bg-destructive/5 opacity-60" : isKept ? "border-primary/30 bg-primary/5" : "border-border bg-card/50"
-                          )}>
-                            <File className="w-3 h-3 text-muted-foreground" />
-                            <span className="font-mono truncate flex-1">{fp}</span>
-                            {isUndone ? (
-                              <span className="text-destructive font-medium">Undone</span>
-                            ) : isKept ? (
-                              <span className="text-primary font-medium">✓ Kept</span>
-                            ) : (
-                              <div className="flex gap-1">
-                                <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => handleKeepFile(fp)}>
-                                  Keep
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-destructive hover:text-destructive" onClick={() => handleUndoFile(fp)}>
-                                  <Undo2 className="w-3 h-3 mr-1" /> Undo
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <FileChangePanel
+                      fileChanges={new Map(changedFiles.filter(fp => fileChanges.has(fp) || undoneFiles.has(fp)).map(fp => [fp, fileChanges.get(fp) || { oldContent: '', newContent: '', type: 'create' as const }]))}
+                      undoneFiles={undoneFiles}
+                      onKeep={handleKeepFile}
+                      onUndo={handleUndoFile}
+                      onFileClick={onSelectFile}
+                    />
                   )}
                   
                   {isLatestAssistant && !isLoading && (
@@ -1023,6 +1003,13 @@ export default function Workspace() {
                   codingFile={codingFile}
                   onCodingFile={setCodingFile}
                   projectId={project?.id}
+                  onSelectFile={(path) => {
+                    const file = files.find(f => f.file_path === path);
+                    if (file) {
+                      setActiveFile(file.file_path);
+                      setFileContent(file.file_content || '');
+                    }
+                  }}
                 />
               )}
               {rightPanelTab === 'review' && (
