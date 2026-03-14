@@ -1150,6 +1150,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <TabsTrigger value="deploy" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                       <Rocket className="w-3.5 h-3.5 mr-1.5" />Deploy
                     </TabsTrigger>
+                    <TabsTrigger value="preview" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Monitor className="w-3.5 h-3.5 mr-1.5" />Preview
+                    </TabsTrigger>
                     <TabsTrigger value="terminal" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                       <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />Terminal
                     </TabsTrigger>
