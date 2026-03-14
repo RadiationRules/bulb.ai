@@ -1038,6 +1038,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <div className="w-px h-6 bg-border mx-2 hidden md:block" />
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
+          <Button variant="outline" size="sm" onClick={() => setRightPanelTab('preview')} className="hidden lg:flex">
+            <Monitor className="w-4 h-4 mr-2" />Preview
+          </Button>
           <Button 
             size="sm" 
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-green-500/25 transition-all hover:scale-105 btn-shine"
