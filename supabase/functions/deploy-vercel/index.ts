@@ -42,50 +42,7 @@ serve(async (req) => {
       data: typeof data === 'string' ? data : JSON.stringify(data)
     }));
 
-    // Add package.json if not present
-    if (!files['package.json']) {
-      deploymentFiles.push({
-        file: 'package.json',
-        data: JSON.stringify({
-          name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-          version: '1.0.0',
-          scripts: {
-            dev: 'vite',
-            build: 'vite build',
-            preview: 'vite preview'
-          },
-          dependencies: {
-            react: '^18.2.0',
-            'react-dom': '^18.2.0'
-          },
-          devDependencies: {
-            '@vitejs/plugin-react': '^4.0.0',
-            vite: '^5.0.0',
-            typescript: '^5.0.0'
-          }
-        }, null, 2)
-      });
-    }
-
-    // Add vite.config.ts if not present
-    if (!files['vite.config.ts']) {
-      deploymentFiles.push({
-        file: 'vite.config.ts',
-        data: `import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': '/src',
-    },
-  },
-});`
-      });
-    }
-
-    // Add index.html if not present
+    // Ensure HTML5 entry files exist for static deployment
     if (!files['index.html']) {
       deploymentFiles.push({
         file: 'index.html',
@@ -95,28 +52,27 @@ export default defineConfig({
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${projectName}</title>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <main id="app">${projectName}</main>
+    <script src="script.js"></script>
   </body>
 </html>`
       });
     }
 
-    // Add main.tsx if not present
-    if (!files['src/main.tsx']) {
+    if (!files['style.css']) {
       deploymentFiles.push({
-        file: 'src/main.tsx',
-        data: `import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+        file: 'style.css',
+        data: `body{font-family:system-ui,-apple-system,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f8fafc;color:#0f172a}#app{padding:2rem}`
+      });
+    }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);`
+    if (!files['script.js']) {
+      deploymentFiles.push({
+        file: 'script.js',
+        data: `console.log('Project deployed successfully');`
       });
     }
 
