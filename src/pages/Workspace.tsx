@@ -1191,6 +1191,12 @@ document.addEventListener('DOMContentLoaded', () => {
               {rightPanelTab === 'deploy' && project && (
                 <DeploymentPanel projectId={project.id} projectName={project.title} visibility={project.visibility} onVisibilityChange={(v) => setProject({ ...project, visibility: v })} />
               )}
+              {rightPanelTab === 'preview' && (
+                <ProjectPreview
+                  projectName={project?.title || 'Project'}
+                  files={Object.fromEntries(files.map((file) => [file.file_path, file.file_content || '']))}
+                />
+              )}
               {rightPanelTab === 'terminal' && (
                 <Terminal 
                   onClose={() => {}} 
