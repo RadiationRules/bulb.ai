@@ -54,30 +54,33 @@ serve(async (req) => {
 - You can create multiple files in one response using multiple CREATE_FILE blocks
 - When editing an existing file, output the full updated code in a code block
 
-## VITE/REACT PROJECT STRUCTURE (CRITICAL):
-When creating web projects, ALWAYS follow this structure:
-- index.html at root with <script type="module" src="/src/main.tsx"></script>
-- src/main.tsx imports from './App.tsx' (WITH .tsx extension!)
-- src/App.tsx is the main component
-- All imports must use file extensions (.tsx, .ts, .css)
-- Use ES modules (import/export), never require()
-- CSS can be imported directly: import './styles.css'
+## HTML5 PROJECT STRUCTURE (CRITICAL):
+When creating web projects, ALWAYS follow this structure by default:
+- index.html at root
+- style.css at root
+- script.js at root
+- No src/ folder unless the user explicitly asks for React/Vite
 
 Example index.html:
 \`\`\`html
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>App</title></head>
-<body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="app"></main>
+  <script src="script.js"></script>
+</body>
 </html>
 \`\`\`
 
-Example src/main.tsx:
-\`\`\`tsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>)
+Example script.js:
+\`\`\`js
+document.getElementById('app').innerHTML = '<h1>Hello</h1>';
 \`\`\`
 
 ## MULTI-FILE CREATION:

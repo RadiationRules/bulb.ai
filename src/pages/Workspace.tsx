@@ -137,7 +137,7 @@ const CopilotPanel = ({
     const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
-      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete: "DELETE_FILE: filename.ext"\nBE BRIEF. Code AUTO-APPLIED.`;
+      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\nBE BRIEF. Code AUTO-APPLIED.`;
     }
     
     setInput('');
@@ -756,19 +756,103 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const resolveDeletionTargets = (targets: string[]) => {
+    const deleteAll = targets.some((target) => {
+      const normalized = target.trim().toLowerCase();
+      return normalized === '*' || normalized === 'all' || normalized === 'all_files' || normalized === 'all-files';
+    });
+
+    if (deleteAll) {
+      return files.map((file) => file.file_path);
+    }
+
+    const resolved = new Set<string>();
+
+    targets.forEach((target) => {
+      const normalized = target.trim().replace(/\/+$/, '');
+      if (!normalized) return;
+
+      const matches = files.filter(
+        (file) => file.file_path === normalized || file.file_path.startsWith(`${normalized}/`)
+      );
+
+      if (matches.length > 0) {
+        matches.forEach((file) => resolved.add(file.file_path));
+      } else {
+        resolved.add(normalized);
+      }
+    });
+
+    return Array.from(resolved);
+  };
+
+  const deletePaths = async (targets: string[]) => {
+    const pathsToDelete = resolveDeletionTargets(targets);
+    if (!pathsToDelete.length) return;
+
+    const pathSet = new Set(pathsToDelete);
+    const filesToDelete = files.filter((file) => pathSet.has(file.file_path));
+
+    if (project && filesToDelete.length > 0) {
+      const persistedIds = filesToDelete
+        .map((file) => file.id)
+        .filter((id) => !id.startsWith('temp-') && !id.startsWith('restored-'));
+
+      if (persistedIds.length > 0) {
+        await supabase.from('project_files').delete().in('id', persistedIds);
+      }
+    }
+
+    const remaining = files.filter((file) => !pathSet.has(file.file_path));
+    setFiles(remaining);
+
+    if (activeFile && pathSet.has(activeFile)) {
+      if (remaining.length > 0) {
+        selectFile(remaining[0].file_path);
+      } else {
+        setActiveFile(null);
+        setFileContent('');
+      }
+    }
+  };
+
   const handleCopilotDeleteFile = async (path: string) => {
-    if (!project) {
-      setFiles(files.filter(f => f.file_path !== path));
-    } else {
-      const file = files.find(f => f.file_path === path);
-      if (file) await supabase.from('project_files').delete().eq('id', file.id);
-      setFiles(files.filter(f => f.file_path !== path));
-    }
-    if (activeFile === path) {
-      const remaining = files.filter(f => f.file_path !== path);
-      if (remaining.length) selectFile(remaining[0].file_path);
-      else { setActiveFile(null); setFileContent(''); }
-    }
+    await deletePaths([path]);
+  };
+
+  const buildPreviewHtml = () => {
+    const htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${project?.title || 'Preview'}</title>
+</head>
+<body>
+  <h1>Preview</h1>
+</body>
+</html>`;
+
+    const cssBlocks = files
+      .filter((file) => file.file_path.endsWith('.css'))
+      .map((file) => `<style>/* ${file.file_path} */\n${file.file_content}</style>`)
+      .join('\n');
+
+    const jsBlocks = files
+      .filter((file) => file.file_path.endsWith('.js'))
+      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}</script>`)
+      .join('\n');
+
+    return htmlFile
+      .replace('</head>', `${cssBlocks}</head>`)
+      .replace('</body>', `${jsBlocks}</body>`);
+  };
+
+  const openPreviewInNewTab = () => {
+    const previewBlob = new Blob([buildPreviewHtml()], { type: 'text/html' });
+    const previewUrl = URL.createObjectURL(previewBlob);
+    window.open(previewUrl, '_blank');
+    setTimeout(() => URL.revokeObjectURL(previewUrl), 30000);
   };
 
   const handleMoveFile = async (sourcePath: string, targetFolder: string) => {
@@ -954,6 +1038,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <div className="w-px h-6 bg-border mx-2 hidden md:block" />
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
+          <Button variant="outline" size="sm" onClick={() => setRightPanelTab('preview')} className="hidden lg:flex">
+            <Monitor className="w-4 h-4 mr-2" />Preview
+          </Button>
           <Button 
             size="sm" 
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-green-500/25 transition-all hover:scale-105 btn-shine"
@@ -990,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   activeFile={activeFile}
                   onSelectFile={selectFile}
                   onCreateFile={(path) => handleCopilotCreateFile(path, '// New file\n', path.split('.').pop() || 'txt')}
-                  onDeleteFiles={(paths) => paths.forEach(p => handleCopilotDeleteFile(p))}
+                  onDeleteFiles={deletePaths}
                   onRenameFile={(oldPath, newPath) => {
                     const file = files.find(f => f.file_path === oldPath);
                     if (file && project) {
@@ -1063,6 +1150,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <TabsTrigger value="deploy" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                       <Rocket className="w-3.5 h-3.5 mr-1.5" />Deploy
                     </TabsTrigger>
+                    <TabsTrigger value="preview" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                      <Monitor className="w-3.5 h-3.5 mr-1.5" />Preview
+                    </TabsTrigger>
                     <TabsTrigger value="terminal" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                       <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />Terminal
                     </TabsTrigger>
@@ -1101,6 +1191,12 @@ document.addEventListener('DOMContentLoaded', () => {
               {rightPanelTab === 'deploy' && project && (
                 <DeploymentPanel projectId={project.id} projectName={project.title} visibility={project.visibility} onVisibilityChange={(v) => setProject({ ...project, visibility: v })} />
               )}
+              {rightPanelTab === 'preview' && (
+                <ProjectPreview
+                  projectName={project?.title || 'Project'}
+                  files={Object.fromEntries(files.map((file) => [file.file_path, file.file_content || '']))}
+                />
+              )}
               {rightPanelTab === 'terminal' && (
                 <Terminal 
                   onClose={() => {}} 
@@ -1121,10 +1217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       {/* Mobile preview */}
       <div className="fixed bottom-6 right-6 z-10 lg:hidden">
-        <Button variant="secondary" className="rounded-full w-12 h-12 shadow-lg" onClick={() => {
-          const htmlFile = files.find(f => f.file_path === 'index.html');
-          if (htmlFile) { const blob = new Blob([htmlFile.file_content], { type: 'text/html' }); window.open(URL.createObjectURL(blob), '_blank'); }
-        }} title="Preview">
+        <Button variant="secondary" className="rounded-full w-12 h-12 shadow-lg" onClick={openPreviewInNewTab} title="Preview">
           <Play className="w-5 h-5" />
         </Button>
       </div>

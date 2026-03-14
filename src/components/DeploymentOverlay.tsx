@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Rocket, CheckCircle, XCircle, Copy, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -26,11 +26,17 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
   const [showConfetti, setShowConfetti] = useState(false);
   const { toast } = useToast();
   const { session } = useAuth();
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen && status === 'idle') {
-      startDeploy();
+    if (!isOpen) {
+      hasStartedRef.current = false;
+      return;
     }
+
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+    startDeploy();
   }, [isOpen]);
 
   const addLog = (msg: string) => setLogs(prev => [...prev, msg]);
@@ -42,6 +48,8 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       return;
     }
 
+    setLogs([]);
+    setDeployUrl('');
     setStatus('deploying');
     setStage(0);
     setProgress(5);

@@ -34,6 +34,7 @@ interface Project {
   tags: string[];
   stars_count: number;
   forks_count: number;
+  preview_image?: string | null;
   created_at: string;
   updated_at: string;
   owner: {
@@ -177,7 +178,7 @@ export default function Dashboard() {
 
       if (error) throw error;
       
-      // Create default files
+      // Create default HTML5 files
       const defaultFiles = [
         {
           project_id: newProject.id,
@@ -185,24 +186,78 @@ export default function Dashboard() {
           file_content: `<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>${newProject.title}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #2563eb; }
-    </style>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to Your New Project!</h1>
-        <p>Start building something amazing with BulbAI.</p>
-    </div>
+    <main class="container">
+        <h1>${newProject.title}</h1>
+        <p>Your HTML5 project is ready.</p>
+        <button id="actionBtn" type="button">Click me</button>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>`,
           file_type: 'html'
+        },
+        {
+          project_id: newProject.id,
+          file_path: 'style.css',
+          file_content: `* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+}
+.container {
+  width: min(680px, 92vw);
+  padding: 2rem;
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16);
+}
+button {
+  margin-top: 1rem;
+  padding: 0.65rem 1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #0f172a;
+  color: #ffffff;
+  cursor: pointer;
+}`,
+          file_type: 'css'
+        },
+        {
+          project_id: newProject.id,
+          file_path: 'script.js',
+          file_content: `const actionBtn = document.getElementById('actionBtn');
+let clicks = 0;
+
+if (actionBtn) {
+  actionBtn.addEventListener('click', () => {
+    clicks += 1;
+    actionBtn.textContent = \`Clicked \${clicks} time\${clicks === 1 ? '' : 's'}\`;
+  });
+}`,
+          file_type: 'javascript'
+        },
+        {
+          project_id: newProject.id,
+          file_path: 'README.md',
+          file_content: `# ${newProject.title}
+
+## Files
+- index.html
+- style.css
+- script.js
+
+Start editing to build your project.`,
+          file_type: 'markdown'
         }
       ];
 
@@ -259,16 +314,27 @@ export default function Dashboard() {
     
     return (
       <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm hover:-translate-y-1">
-        {/* Preview Image - Default BulbAI Template */}
+        {/* Preview Image */}
         <div 
           className="aspect-video bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 relative overflow-hidden flex items-center justify-center"
           onClick={() => openProject(project.id)}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
-          <div className="relative z-10 flex flex-col items-center gap-2">
-            <BulbIcon className="w-12 h-12 text-bulb-glow" />
-            <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
-          </div>
+          {project.preview_image ? (
+            <img
+              src={project.preview_image}
+              alt={`${project.title} preview`}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <BulbIcon className="w-12 h-12 text-bulb-glow" />
+                <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
+              </div>
+            </>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         
