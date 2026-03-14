@@ -314,16 +314,27 @@ Start editing to build your project.`,
     
     return (
       <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm hover:-translate-y-1">
-        {/* Preview Image - Default BulbAI Template */}
+        {/* Preview Image */}
         <div 
           className="aspect-video bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 relative overflow-hidden flex items-center justify-center"
           onClick={() => openProject(project.id)}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
-          <div className="relative z-10 flex flex-col items-center gap-2">
-            <BulbIcon className="w-12 h-12 text-bulb-glow" />
-            <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
-          </div>
+          {project.preview_image ? (
+            <img
+              src={project.preview_image}
+              alt={`${project.title} preview`}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <BulbIcon className="w-12 h-12 text-bulb-glow" />
+                <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
+              </div>
+            </>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         </div>
         
