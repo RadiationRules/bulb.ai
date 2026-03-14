@@ -1217,10 +1217,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       {/* Mobile preview */}
       <div className="fixed bottom-6 right-6 z-10 lg:hidden">
-        <Button variant="secondary" className="rounded-full w-12 h-12 shadow-lg" onClick={() => {
-          const htmlFile = files.find(f => f.file_path === 'index.html');
-          if (htmlFile) { const blob = new Blob([htmlFile.file_content], { type: 'text/html' }); window.open(URL.createObjectURL(blob), '_blank'); }
-        }} title="Preview">
+        <Button variant="secondary" className="rounded-full w-12 h-12 shadow-lg" onClick={openPreviewInNewTab} title="Preview">
           <Play className="w-5 h-5" />
         </Button>
       </div>
