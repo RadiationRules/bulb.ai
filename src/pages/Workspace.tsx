@@ -1074,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   activeFile={activeFile}
                   onSelectFile={selectFile}
                   onCreateFile={(path) => handleCopilotCreateFile(path, '// New file\n', path.split('.').pop() || 'txt')}
-                  onDeleteFiles={(paths) => paths.forEach(p => handleCopilotDeleteFile(p))}
+                  onDeleteFiles={deletePaths}
                   onRenameFile={(oldPath, newPath) => {
                     const file = files.find(f => f.file_path === oldPath);
                     if (file && project) {
