@@ -241,7 +241,7 @@ let clicks = 0;
 if (actionBtn) {
   actionBtn.addEventListener('click', () => {
     clicks += 1;
-    actionBtn.textContent = `Clicked ${clicks} time${clicks === 1 ? '' : 's'}`;
+    actionBtn.textContent = \`Clicked \${clicks} time\${clicks === 1 ? '' : 's'}\`;
   });
 }`,
           file_type: 'javascript'
