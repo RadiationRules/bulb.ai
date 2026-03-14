@@ -756,19 +756,103 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const resolveDeletionTargets = (targets: string[]) => {
+    const deleteAll = targets.some((target) => {
+      const normalized = target.trim().toLowerCase();
+      return normalized === '*' || normalized === 'all' || normalized === 'all_files' || normalized === 'all-files';
+    });
+
+    if (deleteAll) {
+      return files.map((file) => file.file_path);
+    }
+
+    const resolved = new Set<string>();
+
+    targets.forEach((target) => {
+      const normalized = target.trim().replace(/\/+$/, '');
+      if (!normalized) return;
+
+      const matches = files.filter(
+        (file) => file.file_path === normalized || file.file_path.startsWith(`${normalized}/`)
+      );
+
+      if (matches.length > 0) {
+        matches.forEach((file) => resolved.add(file.file_path));
+      } else {
+        resolved.add(normalized);
+      }
+    });
+
+    return Array.from(resolved);
+  };
+
+  const deletePaths = async (targets: string[]) => {
+    const pathsToDelete = resolveDeletionTargets(targets);
+    if (!pathsToDelete.length) return;
+
+    const pathSet = new Set(pathsToDelete);
+    const filesToDelete = files.filter((file) => pathSet.has(file.file_path));
+
+    if (project && filesToDelete.length > 0) {
+      const persistedIds = filesToDelete
+        .map((file) => file.id)
+        .filter((id) => !id.startsWith('temp-') && !id.startsWith('restored-'));
+
+      if (persistedIds.length > 0) {
+        await supabase.from('project_files').delete().in('id', persistedIds);
+      }
+    }
+
+    const remaining = files.filter((file) => !pathSet.has(file.file_path));
+    setFiles(remaining);
+
+    if (activeFile && pathSet.has(activeFile)) {
+      if (remaining.length > 0) {
+        selectFile(remaining[0].file_path);
+      } else {
+        setActiveFile(null);
+        setFileContent('');
+      }
+    }
+  };
+
   const handleCopilotDeleteFile = async (path: string) => {
-    if (!project) {
-      setFiles(files.filter(f => f.file_path !== path));
-    } else {
-      const file = files.find(f => f.file_path === path);
-      if (file) await supabase.from('project_files').delete().eq('id', file.id);
-      setFiles(files.filter(f => f.file_path !== path));
-    }
-    if (activeFile === path) {
-      const remaining = files.filter(f => f.file_path !== path);
-      if (remaining.length) selectFile(remaining[0].file_path);
-      else { setActiveFile(null); setFileContent(''); }
-    }
+    await deletePaths([path]);
+  };
+
+  const buildPreviewHtml = () => {
+    const htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${project?.title || 'Preview'}</title>
+</head>
+<body>
+  <h1>Preview</h1>
+</body>
+</html>`;
+
+    const cssBlocks = files
+      .filter((file) => file.file_path.endsWith('.css'))
+      .map((file) => `<style>/* ${file.file_path} */\n${file.file_content}</style>`)
+      .join('\n');
+
+    const jsBlocks = files
+      .filter((file) => file.file_path.endsWith('.js'))
+      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}</script>`)
+      .join('\n');
+
+    return htmlFile
+      .replace('</head>', `${cssBlocks}</head>`)
+      .replace('</body>', `${jsBlocks}</body>`);
+  };
+
+  const openPreviewInNewTab = () => {
+    const previewBlob = new Blob([buildPreviewHtml()], { type: 'text/html' });
+    const previewUrl = URL.createObjectURL(previewBlob);
+    window.open(previewUrl, '_blank');
+    setTimeout(() => URL.revokeObjectURL(previewUrl), 30000);
   };
 
   const handleMoveFile = async (sourcePath: string, targetFolder: string) => {
