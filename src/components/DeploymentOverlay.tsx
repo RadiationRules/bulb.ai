@@ -48,6 +48,8 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       return;
     }
 
+    setLogs([]);
+    setDeployUrl('');
     setStatus('deploying');
     setStage(0);
     setProgress(5);
