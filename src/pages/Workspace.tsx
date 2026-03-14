@@ -137,7 +137,7 @@ const CopilotPanel = ({
     const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
-      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete: "DELETE_FILE: filename.ext"\nBE BRIEF. Code AUTO-APPLIED.`;
+      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\nBE BRIEF. Code AUTO-APPLIED.`;
     }
     
     setInput('');
