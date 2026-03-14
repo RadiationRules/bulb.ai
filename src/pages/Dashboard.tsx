@@ -34,6 +34,7 @@ interface Project {
   tags: string[];
   stars_count: number;
   forks_count: number;
+  preview_image?: string | null;
   created_at: string;
   updated_at: string;
   owner: {
