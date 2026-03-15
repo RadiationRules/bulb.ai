@@ -1026,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div className="w-px h-6 bg-border mx-2 hidden md:block" />
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
-          <Button variant="outline" size="sm" onClick={() => setRightPanelTab('preview')} className="hidden lg:flex">
+          <Button variant="outline" size="sm" onClick={openPreviewInNewTab} className="hidden lg:flex">
             <Monitor className="w-4 h-4 mr-2" />Preview
           </Button>
           <Button 
