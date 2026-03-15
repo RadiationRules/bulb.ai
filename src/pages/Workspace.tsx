@@ -379,7 +379,7 @@ const CopilotPanel = ({
           
           {/* Live AI activity indicator */}
           {isLoading && (
-            <AiActivityIndicator stage={aiStage} detail={stageDetail} />
+            <AiActivityIndicator stage={aiStage} detail={stageDetail} currentFile={currentFile} tokenSpeed={tokenSpeed} />
           )}
         </div>
       </ScrollArea>
