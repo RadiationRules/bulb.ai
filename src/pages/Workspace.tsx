@@ -350,15 +350,15 @@ const CopilotPanel = ({
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
                   
-                  {/* Keep / Undo with diff via FileChangePanel */}
+                  {/* Auto-applied file badges */}
                   {message.role === 'assistant' && changedFiles.length > 0 && !isLoading && (
-                    <FileChangePanel
-                      fileChanges={new Map(changedFiles.filter(fp => fileChanges.has(fp) || undoneFiles.has(fp)).map(fp => [fp, fileChanges.get(fp) || { oldContent: '', newContent: '', type: 'create' as const }]))}
-                      undoneFiles={undoneFiles}
-                      onKeep={handleKeepFile}
-                      onUndo={handleUndoFile}
-                      onFileClick={onSelectFile}
-                    />
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {changedFiles.map(fp => (
+                        <button key={fp} onClick={() => onSelectFile(fp)} className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
+                          {fp}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   
                   {isLatestAssistant && !isLoading && (
