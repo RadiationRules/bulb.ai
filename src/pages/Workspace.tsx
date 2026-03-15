@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const buildPreviewHtml = () => {
-    const htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
+    let htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -821,6 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>`;
 
+    // Remove external CSS link tags and script src tags — we'll inline them
+    htmlFile = htmlFile.replace(/<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']+["'][^>]*\/?>/gi, '');
+    htmlFile = htmlFile.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
+
     const cssBlocks = files
       .filter((file) => file.file_path.endsWith('.css'))
       .map((file) => `<style>/* ${file.file_path} */\n${file.file_content}</style>`)
@@ -828,12 +832,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const jsBlocks = files
       .filter((file) => file.file_path.endsWith('.js'))
-      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}</script>`)
+      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}<\/script>`)
       .join('\n');
 
     return htmlFile
-      .replace('</head>', `${cssBlocks}</head>`)
-      .replace('</body>', `${jsBlocks}</body>`);
+      .replace('</head>', `${cssBlocks}\n</head>`)
+      .replace('</body>', `${jsBlocks}\n</body>`);
   };
 
   const openPreviewInNewTab = () => {
