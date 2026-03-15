@@ -186,28 +186,17 @@ const CopilotPanel = ({
   };
 
   const parseAndApplyAIResponse = (response: string) => {
-    const newChanges = new Map(fileChanges);
-    
     // Handle multiple CREATE_FILE blocks
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
       createMatches.forEach(match => {
         const filename = match[1];
         const content = match[2].trim();
-        setCurrentOperation(`Creating ${filename}`);
         onCodingFile(filename);
         const ext = filename.split('.').pop() || 'txt';
-        const existingFile = files.find(f => f.file_path === filename);
-        newChanges.set(filename, { 
-          oldContent: existingFile?.file_content || '', 
-          newContent: content, 
-          type: existingFile ? 'update' : 'create' 
-        });
         onCreateFile(filename, content, ext);
-        toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
       });
-      setFileChanges(newChanges);
-      setCurrentOperation(null);
       onCodingFile(null);
       return;
     }
@@ -221,11 +210,8 @@ const CopilotPanel = ({
         const ext = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '';
-        const existingFile = files.find(f => f.file_path === filename);
-        newChanges.set(filename, { oldContent: existingFile?.file_content || '', newContent: content, type: existingFile ? 'update' : 'create' });
-        setFileChanges(newChanges);
         onCreateFile(filename, content, ext);
-        toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
         onCodingFile(null);
         return;
       }
@@ -235,16 +221,9 @@ const CopilotPanel = ({
     if (response.includes('DELETE_FILE:')) {
       const matches = response.matchAll(/DELETE_FILE:\s*(\S+)/g);
       const filenames = Array.from(matches).map(m => m[1]);
-      filenames.forEach(f => {
-        const existingFile = files.find(file => file.file_path === f);
-        if (existingFile) {
-          newChanges.set(f, { oldContent: existingFile.file_content, newContent: '', type: 'delete' });
-        }
-        onDeleteFile(f);
-      });
-      setFileChanges(newChanges);
+      filenames.forEach(f => onDeleteFile(f));
       if (filenames.length) {
-        toast({ title: '✓', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
       }
       return;
     }
@@ -254,33 +233,10 @@ const CopilotPanel = ({
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
       onCodingFile(activeFile);
-      newChanges.set(activeFile, { oldContent: fileContent, newContent, type: 'update' });
-      setFileChanges(newChanges);
       onUpdateFile(newContent);
-      toast({ title: '✓', description: activeFile, duration: 1500 });
+      toast({ title: '✓ Applied', description: activeFile, duration: 1500 });
       onCodingFile(null);
     }
-  };
-
-  const handleUndoFile = (filePath: string) => {
-    const change = fileChanges.get(filePath);
-    if (!change) return;
-    if (change.type === 'create') {
-      onDeleteFile(filePath);
-    } else if (change.type === 'update') {
-      onUpdateFile(change.oldContent);
-    }
-    setUndoneFiles(prev => new Set(prev).add(filePath));
-    toast({ title: 'Undone', description: filePath, duration: 1500 });
-  };
-
-  const handleKeepFile = (filePath: string) => {
-    setFileChanges(prev => {
-      const next = new Map(prev);
-      next.delete(filePath);
-      return next;
-    });
-    toast({ title: '✓ Kept', description: filePath, duration: 1500 });
   };
 
   return (
