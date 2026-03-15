@@ -52,7 +52,7 @@ import { AICodingScreen } from '@/components/AICodingScreen';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
-import { FileChangePanel } from '@/components/FileChangePanel';
+// FileChangePanel removed - changes auto-apply now
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
