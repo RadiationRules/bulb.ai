@@ -21,38 +21,13 @@ export const ProjectPreview = ({ files, projectName = "Project" }: ProjectPrevie
   const [previewUrl, setPreviewUrl] = useState<string>("");
 
   const generatePreview = () => {
-    // Find the main HTML file
-    const htmlFile = files['index.html'] || files['src/index.html'] || `
+    let htmlFile = files['index.html'] || files['src/index.html'] || `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${projectName}</title>
-  <style>
-    body { 
-      font-family: system-ui, -apple-system, sans-serif; 
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-      color: white;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0;
-    }
-    .container {
-      text-align: center;
-      padding: 2rem;
-    }
-    h1 {
-      font-size: 2.5rem;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 1rem;
-    }
-    p { color: #94a3b8; }
-  </style>
 </head>
 <body>
   <div class="container">
@@ -62,6 +37,10 @@ export const ProjectPreview = ({ files, projectName = "Project" }: ProjectPrevie
 </body>
 </html>`;
 
+    // Remove external link/script tags — we inline everything
+    htmlFile = htmlFile.replace(/<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']+["'][^>]*\/?>/gi, '');
+    htmlFile = htmlFile.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
+
     // Inject CSS files
     let cssContent = '';
     Object.entries(files).forEach(([path, content]) => {
@@ -70,16 +49,11 @@ export const ProjectPreview = ({ files, projectName = "Project" }: ProjectPrevie
       }
     });
 
-    // Inject JS files
+    // Inject JS files (no TS transpilation — plain JS only)
     let jsContent = '';
     Object.entries(files).forEach(([path, content]) => {
-      if (path.endsWith('.js') || path.endsWith('.ts')) {
-        // Basic transpilation for simple TS
-        const transpiled = content
-          .replace(/:\s*\w+/g, '') // Remove type annotations
-          .replace(/interface\s+\w+\s*{[^}]*}/g, '') // Remove interfaces
-          .replace(/type\s+\w+\s*=[^;]+;/g, ''); // Remove type aliases
-        jsContent += `<script>/* ${path} */\n${transpiled}</script>\n`;
+      if (path.endsWith('.js')) {
+        jsContent += `<script>/* ${path} */\n${content}<\/script>\n`;
       }
     });
 

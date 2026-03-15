@@ -73,9 +73,12 @@ export default function Chat() {
     if (!loading && !user) navigate('/auth');
   }, [user, loading]);
 
+  // Auto-scroll during streaming
   useEffect(() => {
-    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
-    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+    requestAnimationFrame(() => {
+      const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+      if (viewport) viewport.scrollTop = viewport.scrollHeight;
+    });
   }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +170,7 @@ export default function Chat() {
             </div>
           ))}
 
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+          {isLoading && (
             <AiActivityIndicator stage={aiStage} detail={stageDetail || 'Working...'} />
           )}
         </div>

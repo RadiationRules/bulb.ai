@@ -52,7 +52,7 @@ import { AICodingScreen } from '@/components/AICodingScreen';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
-import { FileChangePanel } from '@/components/FileChangePanel';
+// FileChangePanel removed - changes auto-apply now
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -105,19 +105,51 @@ const CopilotPanel = ({
   onSelectFile: (path: string) => void;
 }) => {
   const [input, setInput] = useState('');
-  const { messages, isLoading, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
+  const { messages, isLoading, currentFile, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
-  const [currentOperation, setCurrentOperation] = useState<string | null>(null);
-  const [fileChanges, setFileChanges] = useState<Map<string, { oldContent: string; newContent: string; type: 'create' | 'update' | 'delete' }>>(new Map());
-  const [undoneFiles, setUndoneFiles] = useState<Set<string>>(new Set());
+  const [tokenSpeed, setTokenSpeed] = useState(0);
+  const tokenCountRef = useRef(0);
+  const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-scroll to bottom during streaming
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
+
+  // Token speed tracker
+  useEffect(() => {
+    if (isLoading) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        tokenCountRef.current = lastMsg.content.split(/\s+/).length;
+      }
+      if (!tokenTimerRef.current) {
+        let lastCount = 0;
+        tokenTimerRef.current = setInterval(() => {
+          const current = tokenCountRef.current;
+          setTokenSpeed(Math.max(0, (current - lastCount) * 2));
+          lastCount = current;
+        }, 500);
+      }
+    } else {
+      if (tokenTimerRef.current) {
+        clearInterval(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
+      setTokenSpeed(0);
+    }
+    return () => {
+      if (tokenTimerRef.current) {
+        clearInterval(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
+    };
+  }, [isLoading, messages]);
 
   useEffect(() => {
     messages.forEach((message, index) => {
@@ -154,28 +186,17 @@ const CopilotPanel = ({
   };
 
   const parseAndApplyAIResponse = (response: string) => {
-    const newChanges = new Map(fileChanges);
-    
     // Handle multiple CREATE_FILE blocks
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
       createMatches.forEach(match => {
         const filename = match[1];
         const content = match[2].trim();
-        setCurrentOperation(`Creating ${filename}`);
         onCodingFile(filename);
         const ext = filename.split('.').pop() || 'txt';
-        const existingFile = files.find(f => f.file_path === filename);
-        newChanges.set(filename, { 
-          oldContent: existingFile?.file_content || '', 
-          newContent: content, 
-          type: existingFile ? 'update' : 'create' 
-        });
         onCreateFile(filename, content, ext);
-        toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
       });
-      setFileChanges(newChanges);
-      setCurrentOperation(null);
       onCodingFile(null);
       return;
     }
@@ -189,11 +210,8 @@ const CopilotPanel = ({
         const ext = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '';
-        const existingFile = files.find(f => f.file_path === filename);
-        newChanges.set(filename, { oldContent: existingFile?.file_content || '', newContent: content, type: existingFile ? 'update' : 'create' });
-        setFileChanges(newChanges);
         onCreateFile(filename, content, ext);
-        toast({ title: '✓', description: `Created ${filename}`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
         onCodingFile(null);
         return;
       }
@@ -203,16 +221,9 @@ const CopilotPanel = ({
     if (response.includes('DELETE_FILE:')) {
       const matches = response.matchAll(/DELETE_FILE:\s*(\S+)/g);
       const filenames = Array.from(matches).map(m => m[1]);
-      filenames.forEach(f => {
-        const existingFile = files.find(file => file.file_path === f);
-        if (existingFile) {
-          newChanges.set(f, { oldContent: existingFile.file_content, newContent: '', type: 'delete' });
-        }
-        onDeleteFile(f);
-      });
-      setFileChanges(newChanges);
+      filenames.forEach(f => onDeleteFile(f));
       if (filenames.length) {
-        toast({ title: '✓', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
+        toast({ title: '✓ Applied', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
       }
       return;
     }
@@ -222,33 +233,10 @@ const CopilotPanel = ({
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
       onCodingFile(activeFile);
-      newChanges.set(activeFile, { oldContent: fileContent, newContent, type: 'update' });
-      setFileChanges(newChanges);
       onUpdateFile(newContent);
-      toast({ title: '✓', description: activeFile, duration: 1500 });
+      toast({ title: '✓ Applied', description: activeFile, duration: 1500 });
       onCodingFile(null);
     }
-  };
-
-  const handleUndoFile = (filePath: string) => {
-    const change = fileChanges.get(filePath);
-    if (!change) return;
-    if (change.type === 'create') {
-      onDeleteFile(filePath);
-    } else if (change.type === 'update') {
-      onUpdateFile(change.oldContent);
-    }
-    setUndoneFiles(prev => new Set(prev).add(filePath));
-    toast({ title: 'Undone', description: filePath, duration: 1500 });
-  };
-
-  const handleKeepFile = (filePath: string) => {
-    setFileChanges(prev => {
-      const next = new Map(prev);
-      next.delete(filePath);
-      return next;
-    });
-    toast({ title: '✓ Kept', description: filePath, duration: 1500 });
   };
 
   return (
@@ -362,15 +350,15 @@ const CopilotPanel = ({
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
                   
-                  {/* Keep / Undo with diff via FileChangePanel */}
+                  {/* Auto-applied file badges */}
                   {message.role === 'assistant' && changedFiles.length > 0 && !isLoading && (
-                    <FileChangePanel
-                      fileChanges={new Map(changedFiles.filter(fp => fileChanges.has(fp) || undoneFiles.has(fp)).map(fp => [fp, fileChanges.get(fp) || { oldContent: '', newContent: '', type: 'create' as const }]))}
-                      undoneFiles={undoneFiles}
-                      onKeep={handleKeepFile}
-                      onUndo={handleUndoFile}
-                      onFileClick={onSelectFile}
-                    />
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {changedFiles.map(fp => (
+                        <button key={fp} onClick={() => onSelectFile(fp)} className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
+                          {fp}
+                        </button>
+                      ))}
+                    </div>
                   )}
                   
                   {isLatestAssistant && !isLoading && (
@@ -391,7 +379,7 @@ const CopilotPanel = ({
           
           {/* Live AI activity indicator */}
           {isLoading && (
-            <AiActivityIndicator stage={aiStage} detail={stageDetail} />
+            <AiActivityIndicator stage={aiStage} detail={stageDetail} currentFile={currentFile} tokenSpeed={tokenSpeed} />
           )}
         </div>
       </ScrollArea>
@@ -821,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const buildPreviewHtml = () => {
-    const htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
+    let htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -833,6 +821,10 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 </html>`;
 
+    // Remove external CSS link tags and script src tags — we'll inline them
+    htmlFile = htmlFile.replace(/<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']+["'][^>]*\/?>/gi, '');
+    htmlFile = htmlFile.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
+
     const cssBlocks = files
       .filter((file) => file.file_path.endsWith('.css'))
       .map((file) => `<style>/* ${file.file_path} */\n${file.file_content}</style>`)
@@ -840,12 +832,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const jsBlocks = files
       .filter((file) => file.file_path.endsWith('.js'))
-      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}</script>`)
+      .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}<\/script>`)
       .join('\n');
 
     return htmlFile
-      .replace('</head>', `${cssBlocks}</head>`)
-      .replace('</body>', `${jsBlocks}</body>`);
+      .replace('</head>', `${cssBlocks}\n</head>`)
+      .replace('</body>', `${jsBlocks}\n</body>`);
   };
 
   const openPreviewInNewTab = () => {
@@ -1038,7 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div className="w-px h-6 bg-border mx-2 hidden md:block" />
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
-          <Button variant="outline" size="sm" onClick={() => setRightPanelTab('preview')} className="hidden lg:flex">
+          <Button variant="outline" size="sm" onClick={openPreviewInNewTab} className="hidden lg:flex">
             <Monitor className="w-4 h-4 mr-2" />Preview
           </Button>
           <Button 
