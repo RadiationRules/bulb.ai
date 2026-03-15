@@ -105,19 +105,51 @@ const CopilotPanel = ({
   onSelectFile: (path: string) => void;
 }) => {
   const [input, setInput] = useState('');
-  const { messages, isLoading, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
+  const { messages, isLoading, currentFile, aiStage, stageDetail, sendMessage, clearMessages, stopGeneration } = useChat(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
-  const [currentOperation, setCurrentOperation] = useState<string | null>(null);
-  const [fileChanges, setFileChanges] = useState<Map<string, { oldContent: string; newContent: string; type: 'create' | 'update' | 'delete' }>>(new Map());
-  const [undoneFiles, setUndoneFiles] = useState<Set<string>>(new Set());
+  const [tokenSpeed, setTokenSpeed] = useState(0);
+  const tokenCountRef = useRef(0);
+  const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-scroll to bottom during streaming
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const viewport = scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight;
     }
   }, [messages]);
+
+  // Token speed tracker
+  useEffect(() => {
+    if (isLoading) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant') {
+        tokenCountRef.current = lastMsg.content.split(/\s+/).length;
+      }
+      if (!tokenTimerRef.current) {
+        let lastCount = 0;
+        tokenTimerRef.current = setInterval(() => {
+          const current = tokenCountRef.current;
+          setTokenSpeed(Math.max(0, (current - lastCount) * 2));
+          lastCount = current;
+        }, 500);
+      }
+    } else {
+      if (tokenTimerRef.current) {
+        clearInterval(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
+      setTokenSpeed(0);
+    }
+    return () => {
+      if (tokenTimerRef.current) {
+        clearInterval(tokenTimerRef.current);
+        tokenTimerRef.current = null;
+      }
+    };
+  }, [isLoading, messages]);
 
   useEffect(() => {
     messages.forEach((message, index) => {
