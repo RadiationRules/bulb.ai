@@ -170,7 +170,7 @@ export default function Chat() {
             </div>
           ))}
 
-          {isLoading && messages[messages.length - 1]?.role === 'user' && (
+          {isLoading && (
             <AiActivityIndicator stage={aiStage} detail={stageDetail || 'Working...'} />
           )}
         </div>
