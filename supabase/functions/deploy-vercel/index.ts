@@ -36,13 +36,13 @@ serve(async (req) => {
     
     console.log('🚀 Starting Vercel deployment for:', projectName);
 
-    // Step 1: Create the deployment with files
+    // Prepare deployment files — all static HTML5
     const deploymentFiles = Object.entries(files).map(([file, data]) => ({
       file,
       data: typeof data === 'string' ? data : JSON.stringify(data)
     }));
 
-    // Ensure HTML5 entry files exist for static deployment
+    // Ensure index.html exists
     if (!files['index.html']) {
       deploymentFiles.push({
         file: 'index.html',
@@ -78,7 +78,7 @@ serve(async (req) => {
 
     console.log('📦 Preparing', deploymentFiles.length, 'files for deployment');
 
-    // Create deployment on Vercel
+    // Deploy as static files — no framework, no build
     const deployResponse = await fetch('https://api.vercel.com/v13/deployments', {
       method: 'POST',
       headers: {
@@ -86,13 +86,14 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+        name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 50),
         files: deploymentFiles,
         projectSettings: {
           framework: null,
           buildCommand: null,
           outputDirectory: null,
           installCommand: null,
+          devCommand: null,
         },
         target: 'production',
       }),
@@ -103,7 +104,6 @@ serve(async (req) => {
     if (!deployResponse.ok) {
       console.error('❌ Vercel API error:', deployData);
       
-      // Handle specific error cases
       if (deployData.error?.code === 'forbidden') {
         return new Response(
           JSON.stringify({ 
@@ -128,10 +128,9 @@ serve(async (req) => {
     console.log('✅ Deployment created:', deployData.id);
     console.log('🌐 URL:', deployData.url);
 
-    // The URL returned is the deployment URL
     const liveUrl = `https://${deployData.url}`;
     
-    // Update our database with the deployment info
+    // Update database
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -141,14 +140,13 @@ serve(async (req) => {
       status: 'building',
       url: liveUrl,
       logs: [
-        '🚀 Deployment started on Vercel',
+        '🚀 Static HTML5 deployment started',
         `📦 Uploaded ${deploymentFiles.length} files`,
-        '🔧 Building project...',
+        '⚡ No build step — serving static files directly',
         `🆔 Deployment ID: ${deployData.id}`,
       ]
     });
 
-    // Update project preview_url
     await supabase.from('projects').update({
       preview_url: liveUrl
     }).eq('id', projectId);
@@ -159,7 +157,7 @@ serve(async (req) => {
         deploymentId: deployData.id,
         url: liveUrl,
         readyState: deployData.readyState,
-        message: 'Deployment started! Your site will be live in about 30 seconds.',
+        message: 'Deployment started! Your static site will be live in seconds.',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -21,7 +21,7 @@ import {
   Save, Play, FolderOpen, File, Plus, Settings, Share2, Star, GitFork,
   MessageSquare, Minimize2, Maximize2, RotateCcw, Terminal as TerminalIcon,
   Bot, Send, Loader2, X, Code, Monitor, RefreshCw, Undo2, Redo2, Search,
-  Download, Upload, Users, UserPlus, GitBranch, Package, Rocket, Sparkles, FileText, Clock
+  Download, Upload, Users, UserPlus, GitBranch, Package, Rocket, Sparkles, FileText, Clock, Lightbulb
 } from 'lucide-react';
 import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
@@ -52,7 +52,7 @@ import { AICodingScreen } from '@/components/AICodingScreen';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
-// FileChangePanel removed - changes auto-apply now
+import { BulbIcon } from '@/components/BulbIcon';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -169,7 +169,7 @@ const CopilotPanel = ({
     const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
-      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\nBE BRIEF. Code AUTO-APPLIED.`;
+      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\n4. Delete multiple: list DELETE_FILE: for each, or DELETE_FILE: ALL_FILES to clear everything\nBE BRIEF. Code AUTO-APPLIED.`;
     }
     
     setInput('');
@@ -186,6 +186,28 @@ const CopilotPanel = ({
   };
 
   const parseAndApplyAIResponse = (response: string) => {
+    // Handle DELETE_FILE first (including ALL_FILES and multiple)
+    if (response.includes('DELETE_FILE:')) {
+      const matches = Array.from(response.matchAll(/DELETE_FILE:\s*(\S+)/g));
+      const filenames = matches.map(m => m[1]);
+      if (filenames.length > 0) {
+        // Check for ALL_FILES or wildcard
+        const deleteAll = filenames.some(f => {
+          const n = f.toLowerCase();
+          return n === 'all_files' || n === 'all' || n === '*' || n === 'all-files';
+        });
+        if (deleteAll) {
+          // Delete every file
+          files.forEach(f => onDeleteFile(f.file_path));
+          toast({ title: '✓ Applied', description: `Deleted all ${files.length} files`, duration: 1500 });
+        } else {
+          filenames.forEach(f => onDeleteFile(f));
+          toast({ title: '✓ Applied', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
+        }
+      }
+      // Don't return — there may also be CREATE_FILE blocks after deletion
+    }
+    
     // Handle multiple CREATE_FILE blocks
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
@@ -217,17 +239,6 @@ const CopilotPanel = ({
       }
     }
     
-    // Delete files
-    if (response.includes('DELETE_FILE:')) {
-      const matches = response.matchAll(/DELETE_FILE:\s*(\S+)/g);
-      const filenames = Array.from(matches).map(m => m[1]);
-      filenames.forEach(f => onDeleteFile(f));
-      if (filenames.length) {
-        toast({ title: '✓ Applied', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
-      }
-      return;
-    }
-    
     // Apply code to active file
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
@@ -241,22 +252,22 @@ const CopilotPanel = ({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-background via-background to-primary/5">
-      <div className="p-4 border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
+      <div className="p-3 md:p-4 border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center">
-              <Bot className="w-6 h-6 text-white" />
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+              <BulbIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
-                AI Copilot
+              <h2 className="text-base md:text-lg font-bold bg-gradient-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">
+                BulbAI
               </h2>
-              <p className="text-xs text-muted-foreground">Powered by GPT-5</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">AI Copilot • Powered by Gemini</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={clearMessages}>
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Clear
+            <RotateCcw className="w-4 h-4 mr-1 md:mr-2" />
+            <span className="hidden sm:inline">Clear</span>
           </Button>
         </div>
         
@@ -269,15 +280,15 @@ const CopilotPanel = ({
         )}
       </div>
       
-      <ScrollArea className="flex-1 p-6" ref={scrollRef}>
-        <div className="max-w-4xl mx-auto space-y-6">
+      <ScrollArea className="flex-1 p-3 md:p-6" ref={scrollRef}>
+        <div className="max-w-4xl mx-auto space-y-4 md:space-y-6">
           {messages.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center">
-                <Bot className="w-10 h-10 text-white" />
+            <div className="text-center py-10 md:py-16">
+              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-xl shadow-amber-500/20">
+                <BulbIcon className="w-8 h-8 md:w-10 md:h-10 text-white" />
               </div>
-              <h3 className="text-2xl font-bold mb-3">AI Copilot Ready</h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">BulbAI Ready</h3>
+              <p className="text-muted-foreground mb-4 md:mb-6 max-w-md mx-auto text-sm">
                 Ask me to write code, create files, or build features.
               </p>
               <SuggestionChips suggestions={AI_SUGGESTIONS} onSelect={handleSuggestionClick} />
@@ -303,12 +314,12 @@ const CopilotPanel = ({
                 }
               }
               if (message.content.includes('DELETE_FILE:')) {
-                const match = message.content.match(/DELETE_FILE:\s*(\S+)/);
-                if (match) {
-                  changedFiles = [match[1]];
+                const matches = Array.from(message.content.matchAll(/DELETE_FILE:\s*(\S+)/g));
+                if (matches.length) {
+                  changedFiles = matches.map(m => m[1]);
                   operationBadge = (
                     <Badge className="mb-2 bg-destructive/20 text-destructive animate-fade-in border border-destructive/30">
-                      ✓ Deleted {match[1]}
+                      ✓ Deleted {changedFiles.join(', ')}
                     </Badge>
                   );
                   displayContent = displayContent.replace(/DELETE_FILE:\s*\S+/g, '').trim();
@@ -333,19 +344,19 @@ const CopilotPanel = ({
             const isLatestAssistant = message.role === 'assistant' && index === messages.length - 1;
             
             return (
-              <div key={index} className={cn("flex gap-4 animate-fade-in", message.role === "user" ? "justify-end" : "justify-start")}>
+              <div key={index} className={cn("flex gap-3 md:gap-4 animate-fade-in", message.role === "user" ? "justify-end" : "justify-start")}>
                 {message.role === "assistant" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tech-blue to-bulb-glow flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <Bot className="w-5 h-5 text-white" />
+                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/20">
+                    <BulbIcon className="w-4 h-4 md:w-5 md:h-5 text-white" />
                   </div>
                 )}
-                <div className="flex-1 max-w-[85%]">
+                <div className="flex-1 max-w-[90%] md:max-w-[85%]">
                   {operationBadge}
                   <div className={cn(
-                    "rounded-2xl px-5 py-3 shadow-md",
+                    "rounded-2xl px-4 py-3 md:px-5 shadow-md",
                     message.role === "user"
                       ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground ml-auto"
-                      : "bg-gradient-to-br from-card to-card/80 border border-primary/10"
+                      : "bg-gradient-to-br from-card to-card/80 border border-amber-500/10"
                   )}>
                     <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
                   </div>
@@ -369,8 +380,8 @@ const CopilotPanel = ({
                   )}
                 </div>
                 {message.role === "user" && (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center flex-shrink-0 shadow-lg">
-                    <span className="text-primary-foreground font-semibold text-sm">You</span>
+                  <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center flex-shrink-0 shadow-lg">
+                    <span className="text-primary-foreground font-semibold text-xs md:text-sm">You</span>
                   </div>
                 )}
               </div>
@@ -384,7 +395,7 @@ const CopilotPanel = ({
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t bg-card/50 backdrop-blur-sm flex-shrink-0">
+      <div className="p-3 md:p-4 border-t bg-card/50 backdrop-blur-sm flex-shrink-0">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="flex gap-2">
             <VoiceInput 
@@ -394,7 +405,7 @@ const CopilotPanel = ({
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask AI to write code, create files..."
+              placeholder="Ask BulbAI to write code..."
               disabled={isLoading}
               className="flex-1 h-10 text-sm px-4 rounded-lg"
             />
@@ -403,7 +414,7 @@ const CopilotPanel = ({
                 <X className="h-4 w-4" />
               </Button>
             ) : (
-              <Button type="submit" disabled={!input.trim()} className="h-10 px-4 rounded-lg">
+              <Button type="submit" disabled={!input.trim()} className="h-10 px-4 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white border-0">
                 <Send className="h-4 w-4" />
               </Button>
             )}
@@ -462,6 +473,9 @@ export default function Workspace() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [showDeployOverlay, setShowDeployOverlay] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const { collaborators, setEditor } = useCollaboration(
     projectId || '', profile?.id || '', activeFile
@@ -608,11 +622,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });`,
           file_type: 'javascript'
-        },
-        {
-          id: 'temp-4', file_path: 'README.md',
-          file_content: `# My BulbAI Project\n\nCreated with BulbAI.\n\n## Files\n\n- \`index.html\` — Main page\n- \`style.css\` — Styles\n- \`script.js\` — JavaScript\n\n## Getting Started\n\nEdit files to build your project!`,
-          file_type: 'markdown'
         }
       ];
       setFiles(defaultFiles);
@@ -720,26 +729,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const handleCopilotUpdateFile = async (content: string) => {
     setFileContent(content);
+    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: content } : f));
     if (project && activeFile) {
       try {
         const fileToUpdate = files.find(f => f.file_path === activeFile);
         if (fileToUpdate) {
           await supabase.from('project_files').update({ file_content: content }).eq('id', fileToUpdate.id);
-          setFiles(files.map(f => f.file_path === activeFile ? { ...f, file_content: content } : f));
         }
       } catch {}
     }
   };
 
   const handleCopilotCreateFile = async (path: string, content: string, type: string) => {
+    // Check if file already exists — update it instead
+    const existing = files.find(f => f.file_path === path);
+    if (existing) {
+      // Update existing file
+      const updatedFiles = files.map(f => f.file_path === path ? { ...f, file_content: content } : f);
+      setFiles(updatedFiles);
+      setActiveFile(path);
+      setFileContent(content);
+      if (project && !existing.id.startsWith('temp-')) {
+        await supabase.from('project_files').update({ file_content: content }).eq('id', existing.id);
+      }
+      return;
+    }
+    
     if (!project) {
-      setFiles([...files, { id: `temp-${Date.now()}`, file_path: path, file_content: content, file_type: type }]);
+      setFiles(prev => [...prev, { id: `temp-${Date.now()}`, file_path: path, file_content: content, file_type: type }]);
       setActiveFile(path); setFileContent(content);
     } else {
       try {
         const { data, error } = await supabase.from('project_files').insert({ project_id: project.id, file_path: path, file_content: content, file_type: type }).select().single();
         if (error) throw error;
-        setFiles([...files, data]); setActiveFile(path); setFileContent(content);
+        setFiles(prev => [...prev, data]); setActiveFile(path); setFileContent(content);
       } catch {}
     }
   };
@@ -869,7 +892,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleCommit = async (message: string) => {
     if (!project || !profile) return;
     try {
-      // Save snapshot
       await supabase.from('project_snapshots').insert({
         project_id: project.id,
         user_id: user!.id,
@@ -878,7 +900,6 @@ document.addEventListener('DOMContentLoaded', () => {
         files_snapshot: files.map(f => ({ file_path: f.file_path, file_content: f.file_content, file_type: f.file_type }))
       });
       
-      // Save commit
       await supabase.from('project_commits').insert({
         project_id: project.id,
         user_id: profile.id,
@@ -893,13 +914,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const handleRestoreSnapshot = (restoredFiles: Array<{ file_path: string; file_content: string; file_type: string }>) => {
     if (!project) return;
-    // Replace all files with snapshot
     setFiles(restoredFiles.map((f, i) => ({ id: `restored-${i}`, ...f })));
     if (restoredFiles.length > 0) {
       setActiveFile(restoredFiles[0].file_path);
       setFileContent(restoredFiles[0].file_content);
     }
-    // Re-save all files to Supabase
     restoredFiles.forEach(async (f) => {
       await supabase.from('project_files').upsert({
         project_id: project.id,
@@ -924,15 +943,31 @@ document.addEventListener('DOMContentLoaded', () => {
     setNewFolderName(''); setShowNewFolderDialog(false);
   };
 
+  const handleTitleEdit = () => {
+    if (!project) return;
+    setEditTitleValue(project.title);
+    setEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.select(), 50);
+  };
+
+  const saveTitleEdit = async () => {
+    setEditingTitle(false);
+    if (!project || !editTitleValue.trim() || editTitleValue === project.title) return;
+    const newTitle = editTitleValue.trim();
+    setProject({ ...project, title: newTitle });
+    await supabase.from('projects').update({ title: newTitle }).eq('id', project.id);
+    toast({ title: 'Renamed', description: newTitle, duration: 1500 });
+  };
+
   if (pageLoading) return <LoadingScreen message="Loading workspace..." />;
 
   if (isNewProject) {
     return (
-      <div className="h-screen bg-background p-6">
+      <div className="h-screen bg-background p-4 md:p-6">
         <div className="max-w-2xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Create New Project</h1>
-            <p className="text-muted-foreground">Set up your project details</p>
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Create New Project</h1>
+            <p className="text-muted-foreground text-sm">Set up your project details</p>
           </div>
           <Card>
             <CardHeader><CardTitle>Project Details</CardTitle></CardHeader>
@@ -967,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+    <div className="h-screen bg-background flex flex-col overflow-hidden" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
       {/* AI Coding Screen Overlay */}
       <AICodingScreen isActive={showAICodingScreen && codingFile !== null} filename={codingFile || 'code'} code={fileContent} onClose={() => setShowAICodingScreen(false)} />
 
@@ -980,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
           projectName={project.title}
           files={files}
           onDeployComplete={(url) => {
-            // Save deploy snapshot
             if (user) {
               supabase.from('project_snapshots').insert({
                 project_id: project.id,
@@ -998,72 +1032,90 @@ document.addEventListener('DOMContentLoaded', () => {
       {project && user && <PresenceIndicator projectId={project.id} currentUserId={user.id} />}
 
       {/* Header */}
-      <div className="border-b bg-card/50 px-4 py-2 flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-4 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="hidden md:flex">← Dashboard</Button>
-          <h1 className="font-semibold text-sm md:text-base">{project?.title || 'Workspace'}</h1>
-          {project && <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'}>{project.visibility}</Badge>}
+      <div className="border-b bg-card/50 px-2 md:px-4 py-2 flex items-center justify-between gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-shrink">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="hidden md:flex flex-shrink-0">← Dashboard</Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')} className="md:hidden flex-shrink-0 w-8 h-8">←</Button>
+          
+          {/* Editable title */}
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              value={editTitleValue}
+              onChange={(e) => setEditTitleValue(e.target.value)}
+              onBlur={saveTitleEdit}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveTitleEdit(); if (e.key === 'Escape') setEditingTitle(false); }}
+              className="font-semibold text-sm md:text-base bg-primary/10 text-primary px-2 py-0.5 rounded border-2 border-primary outline-none min-w-[100px] max-w-[200px]"
+              autoFocus
+            />
+          ) : (
+            <button
+              onClick={handleTitleEdit}
+              className="font-semibold text-sm md:text-base hover:bg-primary/10 hover:text-primary px-2 py-0.5 rounded transition-colors truncate max-w-[150px] md:max-w-[250px] text-left"
+              title="Click to rename"
+            >
+              {project?.title || 'Workspace'}
+            </button>
+          )}
+          {project && <Badge variant={project.visibility === 'public' ? 'default' : 'secondary'} className="hidden sm:flex text-[10px]">{project.visibility}</Badge>}
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2 flex-wrap">
-          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={historyIndex <= 0} className={cn(historyIndex <= 0 && "opacity-40", historyIndex > 0 && "glow-white", "hidden sm:flex")} title="Undo">
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={historyIndex <= 0} className={cn(historyIndex <= 0 && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Undo">
             <Undo2 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={historyIndex >= history.length - 1} className={cn(historyIndex >= history.length - 1 && "opacity-40", historyIndex < history.length - 1 && "glow-white", "hidden sm:flex")} title="Redo">
+          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={historyIndex >= history.length - 1} className={cn(historyIndex >= history.length - 1 && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Redo">
             <Redo2 className="w-4 h-4" />
           </Button>
           {autoSaveStatus !== 'idle' && (
-            <span className={cn("text-xs px-2 py-1 rounded-md ml-2 hidden sm:inline-flex items-center gap-1", autoSaveStatus === 'saving' && "text-muted-foreground", autoSaveStatus === 'saved' && "text-green-500")}>
+            <span className={cn("text-xs px-2 py-1 rounded-md hidden sm:inline-flex items-center gap-1", autoSaveStatus === 'saving' && "text-muted-foreground", autoSaveStatus === 'saved' && "text-green-500")}>
               {autoSaveStatus === 'saving' ? <><Loader2 className="w-3 h-3 animate-spin" />Saving...</> : <>✓ Saved</>}
             </span>
           )}
-          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
-          <Button variant="ghost" size="sm" onClick={() => setShowFileSearch(true)} title="Search (Ctrl+P)" className="hidden sm:flex"><Search className="w-4 h-4" /></Button>
-          <Button variant="ghost" size="sm" onClick={downloadProject} title="Download" className="hidden sm:flex"><Download className="w-4 h-4" /></Button>
-          <div className="w-px h-6 bg-border mx-1 hidden md:block" />
-          <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)}>
-            <Share2 className="w-3 h-3 md:w-4 md:h-4 md:mr-2" /><span className="hidden md:inline">Share</span>
+          <Button variant="ghost" size="sm" onClick={() => setShowFileSearch(true)} title="Search (Ctrl+P)" className="hidden sm:flex w-8 h-8 p-0"><Search className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={downloadProject} title="Download" className="hidden sm:flex w-8 h-8 p-0"><Download className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => setShareDialogOpen(true)} className="hidden md:flex">
+            <Share2 className="w-3 h-3 mr-1" />Share
           </Button>
-          <Button onClick={saveFile} disabled={saving} size="sm">
-            <Save className="w-3 h-3 md:w-4 md:h-4 md:mr-2" /><span className="hidden md:inline">{saving ? 'Saving...' : 'Save'}</span>
+          <Button onClick={saveFile} disabled={saving} size="sm" className="hidden md:flex">
+            <Save className="w-3 h-3 mr-1" />{saving ? '...' : 'Save'}
           </Button>
-          <div className="w-px h-6 bg-border mx-2 hidden md:block" />
           {user && <NotificationCenter userId={user.id} />}
           {user && <UserProfileMenu userId={user.id} />}
           <Button variant="outline" size="sm" onClick={openPreviewInNewTab} className="hidden lg:flex">
-            <Monitor className="w-4 h-4 mr-2" />Preview
+            <Monitor className="w-4 h-4 mr-1" />Preview
           </Button>
           <Button 
             size="sm" 
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-green-500/25 transition-all hover:scale-105 btn-shine"
+            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-green-500/25 transition-all hover:scale-105"
             onClick={() => setShowDeployOverlay(true)}
           >
-            <Rocket className="w-4 h-4 mr-2 animate-bounce" />
-            Deploy
+            <Rocket className="w-4 h-4 mr-1" />
+            <span className="hidden sm:inline">Deploy</span>
           </Button>
         </div>
       </div>
 
       {/* Main workspace */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden min-h-0">
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* File explorer */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="hidden md:flex">
+          <ResizablePanel defaultSize={18} minSize={12} maxSize={25} className="hidden md:flex">
             <div className="h-full border-r bg-muted/30 flex flex-col">
-              <div className="p-3 border-b flex-shrink-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <FolderOpen className="w-4 h-4" /><span className="font-medium">Files</span>
+              <div className="p-2 border-b flex-shrink-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <FolderOpen className="w-4 h-4" /><span className="font-medium text-sm">Files</span>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowNewFileDialog(true)}>
+                <div className="grid grid-cols-2 gap-1">
+                  <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => setShowNewFileDialog(true)}>
                     <File className="w-3 h-3 mr-1" />File
                   </Button>
-                  <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowNewFolderDialog(true)}>
+                  <Button variant="outline" size="sm" className="h-7 text-[11px]" onClick={() => setShowNewFolderDialog(true)}>
                     <FolderOpen className="w-3 h-3 mr-1" />Folder
                   </Button>
                 </div>
               </div>
-              <div className="p-2 flex-1 overflow-y-auto">
+              <div className="p-1 flex-1 overflow-y-auto">
                 <FileTree
                   files={files}
                   activeFile={activeFile}
@@ -1090,28 +1142,28 @@ document.addEventListener('DOMContentLoaded', () => {
           <ResizableHandle className="hidden md:flex" />
           
           {/* Editor */}
-          <ResizablePanel defaultSize={40} className="flex">
+          <ResizablePanel defaultSize={42} className="flex">
             <div className="h-full flex flex-col w-full">
               <div className="md:hidden border-b bg-muted/20 p-2">
                 <Select value={activeFile || ''} onValueChange={selectFile}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select a file" /></SelectTrigger>
+                  <SelectTrigger className="w-full h-8 text-sm"><SelectValue placeholder="Select a file" /></SelectTrigger>
                   <SelectContent>
                     {files.map((f) => (<SelectItem key={f.file_path} value={f.file_path}>{f.file_path}</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
               
-              <div className="border-b bg-muted/20 px-4 py-2 flex-shrink-0">
+              <div className="border-b bg-muted/20 px-3 py-1.5 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   {activeFile && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded-sm border">
-                      <File className="w-3 h-3" /><span className="text-sm">{activeFile}</span>
+                    <div className="flex items-center gap-2 px-2 py-0.5 bg-background rounded-sm border">
+                      <File className="w-3 h-3" /><span className="text-xs md:text-sm">{activeFile}</span>
                     </div>
                   )}
                 </div>
               </div>
               
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden min-h-0">
                 <Editor
                   height="100%"
                   language={getLanguageFromFile(activeFile || '')}
@@ -1119,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   theme="vs-dark"
                   onChange={(value) => setFileContent(value || '')}
                   onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
-                  options={{ minimap: { enabled: false }, fontSize: 14, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
+                  options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
                 />
               </div>
             </div>
@@ -1127,36 +1179,28 @@ document.addEventListener('DOMContentLoaded', () => {
           
           <ResizableHandle />
           
-          {/* Right Panel - Reordered Tabs: AI, Review, Deploy, Terminal, History */}
-          <ResizablePanel defaultSize={40} minSize={30} className="hidden lg:flex flex-col">
+          {/* Right Panel - AI, Review, Terminal, History only */}
+          <ResizablePanel defaultSize={40} minSize={28} className="hidden lg:flex flex-col">
             <div className="flex-shrink-0 border-b bg-gradient-to-r from-card/50 to-muted/30">
               <Tabs value={rightPanelTab} onValueChange={setRightPanelTab}>
-                <ScrollArea className="w-full">
-                  <TabsList className="inline-flex h-11 items-center gap-1 rounded-none bg-transparent p-1">
-                    <TabsTrigger value="copilot" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <Bot className="w-3.5 h-3.5 mr-1.5" />AI
-                    </TabsTrigger>
-                    <TabsTrigger value="review" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <Sparkles className="w-3.5 h-3.5 mr-1.5" />Review
-                    </TabsTrigger>
-                    <TabsTrigger value="deploy" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <Rocket className="w-3.5 h-3.5 mr-1.5" />Deploy
-                    </TabsTrigger>
-                    <TabsTrigger value="preview" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <Monitor className="w-3.5 h-3.5 mr-1.5" />Preview
-                    </TabsTrigger>
-                    <TabsTrigger value="terminal" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />Terminal
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
-                      <Clock className="w-3.5 h-3.5 mr-1.5" />History
-                    </TabsTrigger>
-                  </TabsList>
-                </ScrollArea>
+                <TabsList className="inline-flex h-10 items-center gap-1 rounded-none bg-transparent p-1">
+                  <TabsTrigger value="copilot" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white transition-all">
+                    <BulbIcon className="w-3.5 h-3.5 mr-1.5" />BulbAI
+                  </TabsTrigger>
+                  <TabsTrigger value="review" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5" />Review
+                  </TabsTrigger>
+                  <TabsTrigger value="terminal" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                    <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />Terminal
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                    <Clock className="w-3.5 h-3.5 mr-1.5" />History
+                  </TabsTrigger>
+                </TabsList>
               </Tabs>
             </div>
 
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-h-0">
               {rightPanelTab === 'copilot' && (
                 <CopilotPanel
                   activeFile={activeFile}
@@ -1179,15 +1223,6 @@ document.addEventListener('DOMContentLoaded', () => {
               )}
               {rightPanelTab === 'review' && (
                 <CodeReviewPanel fileName={activeFile || 'untitled'} fileContent={fileContent} language={getLanguageFromFile(activeFile || '')} />
-              )}
-              {rightPanelTab === 'deploy' && project && (
-                <DeploymentPanel projectId={project.id} projectName={project.title} visibility={project.visibility} onVisibilityChange={(v) => setProject({ ...project, visibility: v })} />
-              )}
-              {rightPanelTab === 'preview' && (
-                <ProjectPreview
-                  projectName={project?.title || 'Project'}
-                  files={Object.fromEntries(files.map((file) => [file.file_path, file.file_content || '']))}
-                />
               )}
               {rightPanelTab === 'terminal' && (
                 <Terminal 
@@ -1260,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <ProfileModal open={profileModalOpen} onOpenChange={setProfileModalOpen} />
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} files={files} onSelectFile={(path) => { const f = files.find(f => f.file_path === path); if (f) { setActiveFile(path); setFileContent(f.file_content); } }} onOpenPanel={(panel) => {
-        if (panel === 'deployment') setRightPanelTab('deploy');
+        if (panel === 'deployment') setRightPanelTab('terminal');
         else if (panel === 'terminal') setRightPanelTab('terminal');
         else if (panel === 'review') setRightPanelTab('review');
       }} />
