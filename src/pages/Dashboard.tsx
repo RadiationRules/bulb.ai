@@ -245,19 +245,6 @@ if (actionBtn) {
   });
 }`,
           file_type: 'javascript'
-        },
-        {
-          project_id: newProject.id,
-          file_path: 'README.md',
-          file_content: `# ${newProject.title}
-
-## Files
-- index.html
-- style.css
-- script.js
-
-Start editing to build your project.`,
-          file_type: 'markdown'
         }
       ];
 
