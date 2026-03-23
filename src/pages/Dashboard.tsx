@@ -164,14 +164,19 @@ export default function Dashboard() {
     
     setIsCreating(true);
     try {
+      const title = 'Untitled Project';
+      // Generate a preview image as an SVG data URI
+      const previewImage = generateProjectPreview(title);
+      
       const { data: newProject, error } = await supabase
         .from('projects')
         .insert({
-          title: 'Untitled Project',
+          title,
           description: 'A new BulbAI project',
           owner_id: profile.id,
           visibility: 'private',
-          tags: []
+          tags: [],
+          preview_image: previewImage
         })
         .select()
         .single();
