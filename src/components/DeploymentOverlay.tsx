@@ -31,6 +31,10 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
   useEffect(() => {
     if (!isOpen) {
       hasStartedRef.current = false;
+      setStatus('idle');
+      setProgress(0);
+      setStage(0);
+      setLogs([]);
       return;
     }
 
