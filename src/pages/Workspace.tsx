@@ -186,26 +186,14 @@ const CopilotPanel = ({
   };
 
   const parseAndApplyAIResponse = (response: string) => {
-    // Handle DELETE_FILE first (including ALL_FILES and multiple)
+    // Handle DELETE_FILE first (including ALL_FILES and multiple) — batch delete
     if (response.includes('DELETE_FILE:')) {
       const matches = Array.from(response.matchAll(/DELETE_FILE:\s*(\S+)/g));
-      const filenames = matches.map(m => m[1]);
-      if (filenames.length > 0) {
-        // Check for ALL_FILES or wildcard
-        const deleteAll = filenames.some(f => {
-          const n = f.toLowerCase();
-          return n === 'all_files' || n === 'all' || n === '*' || n === 'all-files';
-        });
-        if (deleteAll) {
-          // Delete every file
-          files.forEach(f => onDeleteFile(f.file_path));
-          toast({ title: '✓ Applied', description: `Deleted all ${files.length} files`, duration: 1500 });
-        } else {
-          filenames.forEach(f => onDeleteFile(f));
-          toast({ title: '✓ Applied', description: `Deleted ${filenames.length} file(s)`, duration: 1500 });
-        }
+      const targets = matches.map(m => m[1]);
+      if (targets.length > 0) {
+        onDeleteFile(targets);
+        toast({ title: '✓ Applied', description: `Deleted ${targets.length} target(s)`, duration: 1500 });
       }
-      // Don't return — there may also be CREATE_FILE blocks after deletion
     }
     
     // Handle multiple CREATE_FILE blocks
