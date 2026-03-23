@@ -346,7 +346,7 @@ const CopilotPanel = ({
                       ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground ml-auto"
                       : "bg-gradient-to-br from-card to-card/80 border border-amber-500/10"
                   )}>
-                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{displayContent}</p>
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed transition-all duration-150 ease-out">{displayContent}</p>
                   </div>
                   
                   {/* Auto-applied file badges */}
