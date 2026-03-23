@@ -670,11 +670,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally { setPageLoading(false); }
   };
 
+  const generateProjectPreview = (title: string) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">
+      <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#312e81"/></linearGradient></defs>
+      <rect width="800" height="450" fill="url(#bg)"/>
+      <circle cx="400" cy="180" r="40" fill="#fbbf24" opacity="0.9"/>
+      <text x="400" y="270" text-anchor="middle" fill="white" font-size="28" font-family="system-ui,sans-serif" font-weight="bold">${title.replace(/[<>&'"]/g, '')}</text>
+      <text x="400" y="310" text-anchor="middle" fill="#a5b4fc" font-size="14" font-family="system-ui,sans-serif">BulbAI Project</text>
+    </svg>`;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
+
   const createProject = async () => {
     if (!profile || !projectTitle.trim()) { toast({ title: 'Error', description: 'Enter a title', variant: 'destructive' }); return; }
     setSaving(true);
     try {
-      const { data: projectData, error: projectError } = await supabase.from('projects').insert({ title: projectTitle, description: projectDescription, owner_id: profile.id, tags: projectTags, visibility: 'private' }).select().single();
+      const previewImage = generateProjectPreview(projectTitle);
+      const { data: projectData, error: projectError } = await supabase.from('projects').insert({ title: projectTitle, description: projectDescription, owner_id: profile.id, tags: projectTags, visibility: 'private', preview_image: previewImage }).select().single();
       if (projectError) throw projectError;
       const { error: filesError } = await supabase.from('project_files').insert(files.map(f => ({ project_id: projectData.id, file_path: f.file_path, file_content: f.file_content, file_type: f.file_type })));
       if (filesError) throw filesError;
