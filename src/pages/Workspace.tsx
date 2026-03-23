@@ -954,8 +954,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setEditingTitle(false);
     if (!project || !editTitleValue.trim() || editTitleValue === project.title) return;
     const newTitle = editTitleValue.trim();
+    const previewImage = generateProjectPreview(newTitle);
     setProject({ ...project, title: newTitle });
-    await supabase.from('projects').update({ title: newTitle }).eq('id', project.id);
+    await supabase.from('projects').update({ title: newTitle, preview_image: previewImage }).eq('id', project.id);
     toast({ title: 'Renamed', description: newTitle, duration: 1500 });
   };
 
