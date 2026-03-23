@@ -1196,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   files={files}
                   onUpdateFile={handleCopilotUpdateFile}
                   onCreateFile={handleCopilotCreateFile}
-                  onDeleteFile={handleCopilotDeleteFile}
+                  onDeleteFile={(targets: string[]) => deletePaths(targets)}
                   codingFile={codingFile}
                   onCodingFile={setCodingFile}
                   projectId={project?.id}
