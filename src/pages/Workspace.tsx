@@ -98,7 +98,7 @@ const CopilotPanel = ({
   files: ProjectFile[];
   onUpdateFile: (content: string) => void;
   onCreateFile: (path: string, content: string, type: string) => void;
-  onDeleteFile: (path: string) => void;
+  onDeleteFile: (paths: string[]) => void;
   codingFile: string | null;
   onCodingFile: (file: string | null) => void;
   projectId?: string;
