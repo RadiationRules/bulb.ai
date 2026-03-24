@@ -151,10 +151,9 @@ export const useChat = (projectId?: string) => {
           setStageDetail('Writing code...');
           hasStartedCoding = true;
         }
-        // Transition from reading -> thinking after first tokens
-        if (!hasStartedCoding && text.length > 20 && aiStage !== 'thinking') {
+        if (!hasStartedCoding && text.length > 10) {
           setAiStage('thinking');
-          setStageDetail('Planning approach...');
+          setStageDetail('Generating response...');
         }
       };
 
