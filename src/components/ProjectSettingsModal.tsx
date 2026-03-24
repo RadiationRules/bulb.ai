@@ -121,14 +121,29 @@ export const ProjectSettingsModal = ({
     
     isUploading(true);
     try {
-      // For demo purposes, create a local URL
-      // In production, you'd upload to Supabase Storage
-      const url = URL.createObjectURL(file);
-      setUrl(url);
+      const ext = file.name.split('.').pop() || 'png';
+      const filePath = `${projectId}/${type}-${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('project-assets')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('project-assets')
+        .getPublicUrl(filePath);
+
+      setUrl(publicUrl);
+
+      // Save preview image to project immediately
+      if (type === 'preview') {
+        await supabase.from('projects').update({ preview_image: publicUrl }).eq('id', projectId);
+      }
       
       toast({
         title: `${type === 'favicon' ? 'Favicon' : 'Preview image'} updated`,
-        description: 'Image will be saved with your project settings.',
+        description: 'Image saved to your project.',
       });
     } catch (error) {
       console.error('Upload error:', error);
@@ -154,7 +169,7 @@ export const ProjectSettingsModal = ({
           description,
           visibility,
           tags: updatedTags,
-          preview_url: previewImageUrl || null,
+          preview_image: previewImageUrl || null,
         })
         .eq('id', projectId);
 
