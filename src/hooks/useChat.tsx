@@ -77,8 +77,8 @@ export const useChat = (projectId?: string) => {
       setMessages(prev => [...prev, newUserMessage]);
       setIsLoading(true);
       setCurrentFile(null);
-      setAiStage('reading');
-      setStageDetail('Analyzing your request...');
+      setAiStage('thinking');
+      setStageDetail('Planning approach...');
 
       // Persist user message
       persistMessage('user', displayMessage || validatedMessage);
