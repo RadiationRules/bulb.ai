@@ -1206,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div className="flex-1 overflow-hidden min-h-0">
-              {rightPanelTab === 'copilot' && (
+              <div className={cn("h-full", rightPanelTab !== 'copilot' && "hidden")}>
                 <CopilotPanel
                   activeFile={activeFile}
                   fileContent={fileContent}
@@ -1225,7 +1225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                   }}
                 />
-              )}
+              </div>
               {rightPanelTab === 'review' && (
                 <CodeReviewPanel fileName={activeFile || 'untitled'} fileContent={fileContent} language={getLanguageFromFile(activeFile || '')} />
               )}
