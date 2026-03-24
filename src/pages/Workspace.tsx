@@ -1170,7 +1170,11 @@ document.addEventListener('DOMContentLoaded', () => {
                   language={getLanguageFromFile(activeFile || '')}
                   value={fileContent}
                   theme="vs-dark"
-                  onChange={(value) => setFileContent(value || '')}
+                  onChange={(value) => {
+                    const v = value || '';
+                    setFileContent(v);
+                    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
+                  }}
                   onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
                   options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
                 />

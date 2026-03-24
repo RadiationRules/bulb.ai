@@ -337,16 +337,22 @@ export const CommunityExplore = () => {
       <Card 
         className="group cursor-pointer overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-card/50 backdrop-blur-sm border-border/50"
       >
-        {/* Preview Image - BulbAI default template */}
+        {/* Preview Image */}
         <div 
           className="relative aspect-video overflow-hidden bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center"
           onClick={() => navigate(`/workspace/${project.id}`)}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
-          <div className="relative z-10 flex flex-col items-center gap-2">
-            <BulbIcon className="w-12 h-12 text-bulb-glow" />
-            <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
-          </div>
+          {(project as any).preview_image && !(project as any).preview_image.startsWith('data:image/svg') ? (
+            <img src={(project as any).preview_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
+              <div className="relative z-10 flex flex-col items-center gap-2">
+                <BulbIcon className="w-12 h-12 text-bulb-glow" />
+                <span className="text-xs font-medium text-muted-foreground">BulbAI Project</span>
+              </div>
+            </>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
           {/* Stats overlay on hover */}
