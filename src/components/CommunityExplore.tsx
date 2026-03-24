@@ -108,9 +108,10 @@ export const CommunityExplore = () => {
         category: p.tags?.[0] || 'web',
         tags: p.tags || [],
         stars_count: p.stars_count || 0,
-        views_count: (p.stars_count || 0) * 10, // Estimate views from stars
+        views_count: (p.stars_count || 0) * 10,
         forks_count: p.forks_count || 0,
         created_at: p.created_at,
+        preview_image: p.preview_image,
         owner: {
           id: p.profiles?.id || '',
           username: p.profiles?.username || 'user',
