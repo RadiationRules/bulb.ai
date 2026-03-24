@@ -54,6 +54,7 @@ interface Project {
   views_count: number;
   forks_count: number;
   created_at: string;
+  preview_image?: string | null;
   owner: {
     id: string;
     username: string;
