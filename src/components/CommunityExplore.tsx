@@ -344,8 +344,8 @@ export const CommunityExplore = () => {
           className="relative aspect-video overflow-hidden bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center"
           onClick={() => navigate(`/workspace/${project.id}`)}
         >
-          {(project as any).preview_image && !(project as any).preview_image.startsWith('data:image/svg') ? (
-            <img src={(project as any).preview_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
+          {project.preview_image && !project.preview_image.startsWith('data:image/svg') ? (
+            <img src={project.preview_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
           ) : (
             <>
               <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/40" />
