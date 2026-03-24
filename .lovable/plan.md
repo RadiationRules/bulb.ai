@@ -1,153 +1,126 @@
 
 
-## BulbAI Workspace Overhaul Plan
+## BulbAI Feature Improvement & Enhancement Plan
 
-This is a big set of changes covering deployment animations, tab reordering, terminal upgrades, AI improvements, file tree fixes, and version history. Here's the breakdown:
+### Priority Fixes (from your requests)
 
----
+#### 1. Upload Preview Image Replaces Default Image
+- In `ProjectSettingsModal.tsx`, the image upload currently uses `URL.createObjectURL` (local only, lost on reload)
+- Fix: Upload to Supabase Storage `project-assets` bucket, save the public URL to `projects.preview_image` column
+- When user uploads a preview image, it overwrites the default SVG data URI
+- Dashboard cards already read `preview_image` so they'll show the uploaded one automatically
 
-### 1. Breathtaking Deploy Button and Full-Page Deployment Experience
-
-**What changes:**
-- The top-right "Deploy" button gets a glowing animated gradient with a rocket pulse effect
-- Clicking it opens a full-screen deployment overlay (not just a tab) with:
-  - Animated rocket launch sequence
-  - Real-time build log with typewriter effect
-  - Progress bar with stages (Uploading -> Building -> Deploying -> Live)
-  - Auto-transitions to "Live" state showing the Vercel URL
-  - Confetti or particle burst on success
-- The Vercel short URL is displayed prominently and is copyable
-- After deploy completes, the overlay auto-dismisses with the URL shown in a toast
-
-**Files:** `src/pages/Workspace.tsx`, new `src/components/DeploymentOverlay.tsx`, `src/index.css`
+#### 2. Show AI Thinking Like Lovable (Auto-Close When Typing)
+- Currently `AiActivityIndicator` shows Reading/Thinking/Coding stages inline in chat
+- Enhance: Make the thinking indicator a collapsible overlay that auto-collapses when the AI starts outputting text to the chat
+- During "reading" and "thinking" stages, show an expanded card with pulsing animation and detail text
+- When stage transitions to "coding" and text starts streaming, smoothly collapse the indicator to a minimal inline badge
+- Add a "Show thinking" toggle so users can expand it again if curious
 
 ---
 
-### 2. Reorder Right Panel Tabs
+### New Features & Improvements List
 
-**New tab order:** AI, Review, Deploy, Terminal (renamed from Dev), History (new)
+#### 3. AI Image Upload in Copilot
+- Add an image attach button next to the chat input (camera/paperclip icon)
+- Users can upload screenshots, mockups, or reference images
+- Images sent to the AI via the existing `images` parameter in `useChat`
+- AI can analyze the image and generate matching code
 
-Remove: Live, Activity, Friends, Preview tabs from the main tab bar (they can stay accessible elsewhere)
+#### 4. Multi-Tab Editor (Like VS Code Tabs)
+- Show open files as tabs above the editor instead of just the current file badge
+- Click tabs to switch, middle-click or X to close
+- Tracks which files are open in state, persists across session
 
-**Files:** `src/pages/Workspace.tsx` (lines 1513-1548)
+#### 5. Find & Replace in Editor
+- Add Ctrl+H shortcut and a find/replace bar in the Monaco editor
+- Monaco already supports this natively, just need to enable the actions
 
----
+#### 6. Split Editor View
+- Allow users to split the editor horizontally to view two files side by side
+- Useful when AI creates multiple files and user wants to compare
 
-### 3. Smart Terminal with Real Git Commands
+#### 7. Real-Time Preview Panel (Inline)
+- Instead of only "open in new tab", add an inline iframe preview panel
+- Toggle between code and preview with a split view
+- Auto-refreshes when files change
 
-**What changes:**
-- Terminal becomes project-aware - `ls`, `cat`, `rm`, `touch`, `mkdir` actually read/modify project files in Supabase
-- `git status` shows actually modified files
-- `git add`, `git commit -m "message"` creates real commits in the database
-- `rm` and `mkdir` actually create/delete files
-- `cat` shows real file contents
-- Arrow key history navigation works properly
+#### 8. AI Context Improvements
+- Send full file tree structure to AI so it knows what exists
+- Include file sizes and types for better context
+- AI can reference and modify any file, not just the active one
 
-**Files:** `src/components/Terminal.tsx` (major rewrite to accept project files and callbacks)
+#### 9. Snippet Library
+- Save frequently used code snippets
+- Quick-insert into any file
+- Personal snippet collection stored in Supabase
 
----
+#### 10. Project Export Options
+- Export as ZIP (already exists but improve)
+- Export to GitHub (connect repo, push files)
+- Export as static site bundle ready for any host
 
-### 4. History Tab (Version Control)
+#### 11. Collaborative Editing Improvements
+- Show other users' cursors in real-time (already partially implemented)
+- Add a "who's online" indicator in the header
+- Chat between collaborators within the workspace
 
-**What changes:**
-- New "History" tab at the end of the tab bar
-- Shows each save and deployment as a timeline entry
-- Each entry shows: timestamp, commit message (user types before deploying), file changes
-- Click any entry to restore that version
-- Before deploying, a dialog asks user to describe their changes (like a git commit message)
-- Project cards in templates/explore show "Updated: [date] - [commit message]" like GitHub
+#### 12. Mobile Workspace Improvements
+- Bottom navigation bar for mobile with key actions
+- Swipe between file tree, editor, and AI panel
+- Touch-friendly file tree with long-press context menus
 
-**Files:** New `src/components/HistoryPanel.tsx`, `src/pages/Workspace.tsx`, database migration for `project_snapshots` table
+#### 13. AI Code Explanations
+- "Explain this code" button on any file
+- AI breaks down the code line-by-line in plain English
+- Useful for learning and debugging
 
----
+#### 14. Project Analytics Dashboard
+- View count, unique visitors, deploy frequency
+- Chart of activity over time
+- Show on project settings and dashboard cards
 
-### 5. Fix AI: Persistent Chat, Better Responses, No Corny Messages
+#### 15. Custom Themes for Editor
+- Let users pick Monaco editor themes beyond vs-dark
+- Add BulbAI custom theme with amber/yellow accents
+- Theme picker in settings modal
 
-**What changes:**
-- Chat messages persist to Supabase `chat_messages` table so they survive tab changes and reloads
-- AI system prompt updated to be ultra-concise: 1-3 sentences max, then code
-- Remove "Code generated and applied seamlessly" and "Changes applied successfully" - replace with a clean checkmark badge
-- AI creates proper file structures (multiple files at once) using a structured format
-- Add clickable suggestion chips below AI responses (like Lovable does)
-- AI knows about Vite build requirements so deployed code doesn't error
+#### 16. Keyboard Shortcut Customization
+- Show all available shortcuts in a modal (Ctrl+?)
+- Let users remap shortcuts
+- Display shortcut hints on buttons
 
-**Files:** `src/pages/Workspace.tsx` (CopilotPanel), `supabase/functions/chat/index.ts`, new migration for `chat_messages` table, `src/hooks/useChat.tsx`
+#### 17. AI Template Generation
+- "Generate a landing page", "Generate a portfolio" quick templates
+- AI creates complete multi-file projects from a single prompt
+- Template gallery with previews
 
----
+#### 18. Error Console in Workspace
+- Capture and display JavaScript errors from the preview iframe
+- Show errors inline with red badges
+- One-click "Fix this error" sends it to the AI
 
-### 6. Fix File Tree: Smooth Drag-and-Drop, No Glitches
+#### 19. CSS Visual Editor
+- Click on elements in preview to edit styles visually
+- Color pickers, margin/padding controls, font selectors
+- Changes sync back to CSS files
 
-**What changes:**
-- Drag-and-drop only moves files within the tree (no page scroll/movement)
-- When a folder is selected (highlighted with color outline), clicking "New File" creates the file inside that folder
-- Prevent screen jumping during drag operations using `e.stopPropagation()` and proper state management
-- Selected folder shows a subtle colored border/outline
-- Files sort properly: folders first, then files alphabetically
-- `onMoveFile` actually updates `file_path` in Supabase (currently just logs to console)
-
-**Files:** `src/components/FileTree.tsx`, `src/pages/Workspace.tsx` (onMoveFile handler at line 1436-1439)
-
----
-
-### 7. Fix Download Button
-
-**What changes:**
-- Replace `require('jszip')` with proper ES module import (current code will crash)
-- Use the already-installed `jszip` package with `import JSZip from 'jszip'`
-
-**Files:** `src/pages/Workspace.tsx` (lines 789-813)
-
----
-
-### 8. AI Chat Button Goes to Main BulbAI Chat
-
-**What changes:**
-- The AI chat button on the landing/dashboard page navigates to a dedicated `/chat` route (main BulbAI chat room) instead of the workspace copilot
-
-**Files:** `src/pages/Dashboard.tsx` or navigation component
-
----
-
-### 9. Fix BulbAI Default Template
-
-**What changes:**
-- The default template (index.html + README.md) is locked as the starting point
-- Template only changes when user explicitly edits - it persists via auto-save
-- Template image uses the BulbAI branding consistently
-
-**Files:** `src/pages/Workspace.tsx` (lines 669-736)
-
----
-
-### 10. Fix Vercel Build Error
-
-**What changes:**
-- Update AI system prompt to instruct it about Vite/React project structure
-- When AI creates files, ensure `src/main.tsx` imports from `./App.tsx` (with extension)
-- Add a pre-deploy validation step that checks critical files exist (`index.html`, `src/main.tsx`, `src/App.tsx`)
-- The deploy function already adds missing files, but the AI needs to generate compatible code
-
-**Files:** `supabase/functions/chat/index.ts` (system prompt), `supabase/functions/deploy-vercel/index.ts`
+#### 20. Deploy History & Rollback
+- Show all previous deployments with URLs and timestamps
+- One-click rollback to any previous deployment
+- Compare current vs deployed version
 
 ---
 
 ### Technical Details
 
-**Database migrations needed:**
-1. `chat_messages` table: `id`, `project_id`, `user_id`, `role`, `content`, `created_at`
-2. `project_snapshots` table: `id`, `project_id`, `user_id`, `message`, `files_snapshot` (jsonb), `created_at`
+**Files to modify for Priority Fixes:**
+- `src/components/ProjectSettingsModal.tsx` — Real Supabase Storage upload for preview images, save URL to `preview_image` column
+- `src/components/AiActivityIndicator.tsx` — Add auto-collapse behavior, expanded/collapsed states, smooth transition animations
+- `src/pages/Workspace.tsx` — Pass collapse trigger based on streaming state, handle thinking overlay dismiss
+- `src/hooks/useChat.tsx` — Emit clearer stage transition signals for the collapse logic
 
-**New components:**
-- `src/components/DeploymentOverlay.tsx` - Full-screen animated deployment experience
-- `src/components/HistoryPanel.tsx` - Version history timeline
-- `src/components/SuggestionChips.tsx` - Clickable AI suggestions
+**Storage:** Uses existing `project-assets` bucket (already public)
 
-**Modified components:**
-- `src/pages/Workspace.tsx` - Tab reorder, deploy button, file tree fix, download fix, chat persistence
-- `src/components/Terminal.tsx` - Project-aware smart terminal
-- `src/components/FileTree.tsx` - Smooth drag-drop, folder selection highlight
-- `src/components/DeploymentPanel.tsx` - Pre-deploy commit message dialog
-- `supabase/functions/chat/index.ts` - Concise AI, Vite-aware prompts
-- `src/hooks/useChat.tsx` - Persist messages to Supabase
-- `src/index.css` - Deploy animations, glow effects
+**No database migrations needed** for the two priority fixes — `preview_image` column and `project-assets` bucket already exist.
 
