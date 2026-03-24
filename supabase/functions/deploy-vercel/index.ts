@@ -78,7 +78,8 @@ serve(async (req) => {
 
     console.log('📦 Preparing', deploymentFiles.length, 'files for deployment');
 
-    // Deploy as static files — no framework, no build
+    // Deploy as static files — no framework, no build, no install
+    const slug = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 50) || 'project';
     const deployResponse = await fetch('https://api.vercel.com/v13/deployments', {
       method: 'POST',
       headers: {
@@ -86,14 +87,14 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 50),
+        name: slug,
         files: deploymentFiles,
         projectSettings: {
           framework: null,
-          buildCommand: null,
-          outputDirectory: null,
-          installCommand: null,
-          devCommand: null,
+          buildCommand: "",
+          outputDirectory: ".",
+          installCommand: "",
+          devCommand: "",
         },
         target: 'production',
       }),
