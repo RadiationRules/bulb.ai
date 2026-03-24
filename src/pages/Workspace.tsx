@@ -1170,7 +1170,11 @@ document.addEventListener('DOMContentLoaded', () => {
                   language={getLanguageFromFile(activeFile || '')}
                   value={fileContent}
                   theme="vs-dark"
-                  onChange={(value) => setFileContent(value || '')}
+                  onChange={(value) => {
+                    const v = value || '';
+                    setFileContent(v);
+                    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
+                  }}
                   onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
                   options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
                 />
@@ -1202,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div className="flex-1 overflow-hidden min-h-0">
-              {rightPanelTab === 'copilot' && (
+              <div className={cn("h-full", rightPanelTab !== 'copilot' && "hidden")}>
                 <CopilotPanel
                   activeFile={activeFile}
                   fileContent={fileContent}
@@ -1221,7 +1225,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                   }}
                 />
-              )}
+              </div>
               {rightPanelTab === 'review' && (
                 <CodeReviewPanel fileName={activeFile || 'untitled'} fileContent={fileContent} language={getLanguageFromFile(activeFile || '')} />
               )}
