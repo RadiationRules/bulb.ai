@@ -169,7 +169,7 @@ export const ProjectSettingsModal = ({
           description,
           visibility,
           tags: updatedTags,
-          preview_url: previewImageUrl || null,
+          preview_image: previewImageUrl || null,
         })
         .eq('id', projectId);
 
