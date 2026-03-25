@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_events: {
+        Row: {
+          created_at: string
+          credits_used: number
+          id: string
+          metadata: Json
+          model_tier: string
+          request_kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          metadata?: Json
+          model_tier: string
+          request_kind?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credits_used?: number
+          id?: string
+          metadata?: Json
+          model_tier?: string
+          request_kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
@@ -138,6 +176,44 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json
+          source: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          source: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -297,6 +373,7 @@ export type Database = {
           linkedin_url: string | null
           location: string | null
           portfolio_url: string | null
+          referral_code: string
           skills: string[] | null
           twitter_url: string | null
           updated_at: string
@@ -315,6 +392,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           portfolio_url?: string | null
+          referral_code?: string
           skills?: string[] | null
           twitter_url?: string | null
           updated_at?: string
@@ -333,6 +411,7 @@ export type Database = {
           linkedin_url?: string | null
           location?: string | null
           portfolio_url?: string | null
+          referral_code?: string
           skills?: string[] | null
           twitter_url?: string | null
           updated_at?: string
@@ -677,6 +756,64 @@ export type Database = {
           },
         ]
       }
+      referrals: {
+        Row: {
+          created_at: string
+          id: string
+          qualifying_project_id: string | null
+          referral_code: string
+          referred_user_id: string
+          referrer_user_id: string
+          reward_granted_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          qualifying_project_id?: string | null
+          referral_code: string
+          referred_user_id: string
+          referrer_user_id: string
+          reward_granted_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          qualifying_project_id?: string | null
+          referral_code?: string
+          referred_user_id?: string
+          referrer_user_id?: string
+          reward_granted_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_qualifying_project_id_fkey"
+            columns: ["qualifying_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referred_user_id_fkey"
+            columns: ["referred_user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_user_id_fkey"
+            columns: ["referrer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activities: {
         Row: {
           activity_data: Json | null
@@ -824,6 +961,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_referral_code: { Args: { _referral_code: string }; Returns: Json }
+      award_referral_bonus_for_project: {
+        Args: { _project_id: string }
+        Returns: Json
+      }
+      get_my_credit_summary: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
