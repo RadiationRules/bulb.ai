@@ -112,6 +112,35 @@ const CopilotPanel = ({
   const [tokenSpeed, setTokenSpeed] = useState(0);
   const tokenCountRef = useRef(0);
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [credits, setCredits] = useState<{ daily_remaining: number; total_available: number; resets_at: string } | null>(null);
+
+  // Fetch credits
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const { data } = await supabase.rpc('get_my_credit_summary');
+        if (data) {
+          const d = data as any;
+          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
+        }
+      } catch {}
+    };
+    fetchCredits();
+    const interval = setInterval(fetchCredits, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh credits after each message
+  useEffect(() => {
+    if (!isLoading && messages.length > 0) {
+      supabase.rpc('get_my_credit_summary').then(({ data }) => {
+        if (data) {
+          const d = data as any;
+          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
+        }
+      });
+    }
+  }, [isLoading, messages.length]);
 
   // Auto-scroll to bottom during streaming
   useEffect(() => {
@@ -258,7 +287,24 @@ const CopilotPanel = ({
             <span className="hidden sm:inline">Clear</span>
           </Button>
         </div>
-        
+        {credits && (
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${Math.max(0, Math.min(100, (credits.daily_remaining / 100) * 100))}%`,
+                  background: credits.daily_remaining > 20 ? 'hsl(var(--primary))' : credits.daily_remaining > 0 ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)'
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              {credits.total_available > 0 
+                ? `${credits.daily_remaining}/100 credits` 
+                : '⚡ Free tier'}
+            </span>
+          </div>
+        )}
         {activeFile && (
           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
             <File className="w-4 h-4 text-primary" />
