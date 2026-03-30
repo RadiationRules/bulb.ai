@@ -119,7 +119,10 @@ const CopilotPanel = ({
     const fetchCredits = async () => {
       try {
         const { data } = await supabase.rpc('get_my_credit_summary');
-        if (data) setCredits({ daily_remaining: data.daily_remaining, total_available: data.total_available, resets_at: data.resets_at });
+        if (data) {
+          const d = data as any;
+          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
+        }
       } catch {}
     };
     fetchCredits();
@@ -131,7 +134,10 @@ const CopilotPanel = ({
   useEffect(() => {
     if (!isLoading && messages.length > 0) {
       supabase.rpc('get_my_credit_summary').then(({ data }) => {
-        if (data) setCredits({ daily_remaining: data.daily_remaining, total_available: data.total_available, resets_at: data.resets_at });
+        if (data) {
+          const d = data as any;
+          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
+        }
       });
     }
   }, [isLoading, messages.length]);
