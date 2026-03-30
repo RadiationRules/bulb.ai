@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,55 @@ serve(async (req) => {
         JSON.stringify({ error: 'AI service not configured.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Check user credits
+    const authHeader = req.headers.get('Authorization');
+    let modelToUse = 'google/gemini-2.5-pro';
+    let isPremium = true;
+
+    if (authHeader) {
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
+
+        if (user) {
+          const { data: creditData } = await supabase.rpc('get_my_credit_summary');
+
+          if (creditData) {
+            const totalAvailable = creditData.total_available ?? 0;
+            if (totalAvailable <= 0) {
+              // Fall back to free tier model
+              modelToUse = 'google/gemini-2.5-flash-lite';
+              isPremium = false;
+            }
+          }
+
+          // Get profile ID for usage logging
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+          if (profile) {
+            // Log usage
+            await supabase.from('ai_usage_events').insert({
+              user_id: profile.id,
+              model_tier: isPremium ? 'premium' : 'free',
+              request_kind: 'chat',
+              credits_used: isPremium ? 1 : 0,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Credit check error (non-fatal):', e);
+        // Continue with default model on error
+      }
     }
 
     const formattedMessages = messages.map((msg: any, index: number) => {
@@ -130,7 +180,7 @@ CREATE_FILE: script.js
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
+        model: modelToUse,
         messages: [
           { role: 'system', content: systemPrompt },
           ...formattedMessages
@@ -163,12 +213,14 @@ CREATE_FILE: script.js
       );
     }
 
+    // Add model info header so frontend knows which tier was used
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
+        'X-Model-Tier': isPremium ? 'premium' : 'free',
       },
     });
 

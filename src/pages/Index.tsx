@@ -200,7 +200,7 @@ const Index = () => {
               </span>
             </div>
             <div className="text-center text-muted-foreground">
-              <p>&copy; 2025 BulbAI. Building the future of development.</p>
+              <p>&copy; 2026 BulbAI. Building the future of development.</p>
             </div>
           </div>
         </div>
