@@ -112,6 +112,29 @@ const CopilotPanel = ({
   const [tokenSpeed, setTokenSpeed] = useState(0);
   const tokenCountRef = useRef(0);
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [credits, setCredits] = useState<{ daily_remaining: number; total_available: number; resets_at: string } | null>(null);
+
+  // Fetch credits
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const { data } = await supabase.rpc('get_my_credit_summary');
+        if (data) setCredits({ daily_remaining: data.daily_remaining, total_available: data.total_available, resets_at: data.resets_at });
+      } catch {}
+    };
+    fetchCredits();
+    const interval = setInterval(fetchCredits, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Refresh credits after each message
+  useEffect(() => {
+    if (!isLoading && messages.length > 0) {
+      supabase.rpc('get_my_credit_summary').then(({ data }) => {
+        if (data) setCredits({ daily_remaining: data.daily_remaining, total_available: data.total_available, resets_at: data.resets_at });
+      });
+    }
+  }, [isLoading, messages.length]);
 
   // Auto-scroll to bottom during streaming
   useEffect(() => {
