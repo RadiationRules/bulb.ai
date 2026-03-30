@@ -287,8 +287,24 @@ const CopilotPanel = ({
             <span className="hidden sm:inline">Clear</span>
           </Button>
         </div>
-        
-        {activeFile && (
+        {credits && (
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-500"
+                style={{ 
+                  width: `${Math.max(0, Math.min(100, (credits.daily_remaining / 100) * 100))}%`,
+                  background: credits.daily_remaining > 20 ? 'hsl(var(--primary))' : credits.daily_remaining > 0 ? 'hsl(38 92% 50%)' : 'hsl(0 84% 60%)'
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              {credits.total_available > 0 
+                ? `${credits.daily_remaining}/100 credits` 
+                : '⚡ Free tier'}
+            </span>
+          </div>
+        )}
           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
             <File className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium truncate">{activeFile}</span>
