@@ -112,9 +112,9 @@ export const useChat = (projectId?: string) => {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
         
-        if (response.status === 429) throw new Error('Rate limit exceeded. Please wait.');
-        if (response.status === 402) throw new Error('AI credits depleted.');
-        
+        if (response.status === 429) throw new Error('Rate limit exceeded. Please wait a moment.');
+        if (response.status === 402) throw new Error('No credits remaining. Credits reset at midnight UTC. Upgrade your plan for more credits → /pricing');
+
         throw new Error(errorData.error || `API Error: ${response.status}`);
       }
 
