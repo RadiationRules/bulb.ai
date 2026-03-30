@@ -305,6 +305,7 @@ const CopilotPanel = ({
             </span>
           </div>
         )}
+        {activeFile && (
           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
             <File className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium truncate">{activeFile}</span>
