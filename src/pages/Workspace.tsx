@@ -299,9 +299,9 @@ const CopilotPanel = ({
               />
             </div>
             <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-              {credits.total_available > 0 
+              {credits.daily_remaining > 0 
                 ? `${credits.daily_remaining}/100 credits` 
-                : '⚡ Free tier'}
+                : <>⚡ Free tier · <a href="/pricing" className="text-amber-500 hover:underline">Upgrade</a></>}
             </span>
           </div>
         )}
