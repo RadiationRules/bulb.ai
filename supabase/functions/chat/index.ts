@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Admin codes that grant unlimited credits
+const ADMIN_CODES = ['BULBAI-UNLIMITED-2026'];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -24,10 +27,10 @@ serve(async (req) => {
       );
     }
 
-    // Check user credits
     const authHeader = req.headers.get('Authorization');
     let modelToUse = 'google/gemini-2.5-pro';
     let isPremium = true;
+    let isAdmin = false;
 
     if (authHeader) {
       try {
@@ -39,37 +42,65 @@ serve(async (req) => {
         const { data: { user } } = await supabase.auth.getUser(token);
 
         if (user) {
-          const { data: creditData } = await supabase.rpc('get_my_credit_summary');
-
-          if (creditData) {
-            const totalAvailable = creditData.total_available ?? 0;
-            if (totalAvailable <= 0) {
-              // Fall back to free tier model
-              modelToUse = 'google/gemini-2.5-flash-lite';
-              isPremium = false;
-            }
+          // Check if user has admin role (unlimited credits)
+          const { data: roles } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id);
+          
+          if (roles && roles.some((r: any) => r.role === 'admin')) {
+            isAdmin = true;
           }
 
-          // Get profile ID for usage logging
-          const { data: profile } = await supabase
+          // Check if user has activated an admin code (stored in user preferences)
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('id')
             .eq('user_id', user.id)
             .single();
 
-          if (profile) {
-            // Log usage
+          if (profileData) {
+            const { data: prefs } = await supabase
+              .from('user_preferences')
+              .select('ai_settings')
+              .eq('user_id', profileData.id)
+              .single();
+            
+            const aiSettings = prefs?.ai_settings as any;
+            if (aiSettings?.admin_code && ADMIN_CODES.includes(aiSettings.admin_code)) {
+              isAdmin = true;
+            }
+          }
+
+          if (!isAdmin) {
+            // Use a user-scoped client so auth.uid() works in the RPC
+            const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+              global: { headers: { Authorization: `Bearer ${token}` } }
+            });
+
+            const { data: creditData } = await userClient.rpc('get_my_credit_summary');
+
+            if (creditData) {
+              const totalAvailable = (creditData as any).total_available ?? 0;
+              if (totalAvailable <= 0) {
+                modelToUse = 'google/gemini-2.5-flash-lite';
+                isPremium = false;
+              }
+            }
+          }
+
+          // Log usage
+          if (profileData) {
             await supabase.from('ai_usage_events').insert({
-              user_id: profile.id,
-              model_tier: isPremium ? 'premium' : 'free',
+              user_id: profileData.id,
+              model_tier: isAdmin ? 'premium' : (isPremium ? 'premium' : 'free'),
               request_kind: 'chat',
-              credits_used: isPremium ? 1 : 0,
+              credits_used: isAdmin ? 0 : (isPremium ? 1 : 0),
             });
           }
         }
       } catch (e) {
         console.error('Credit check error (non-fatal):', e);
-        // Continue with default model on error
       }
     }
 
@@ -112,7 +143,7 @@ serve(async (req) => {
 - Use DELETE_FILE: filename.ext to delete specific files
 - Use DELETE_FILE: foldername to delete a folder and ALL its contents
 - Use DELETE_FILE: ALL_FILES to delete ALL files in the project
-- You CAN combine DELETE_FILE and CREATE_FILE in one response (e.g., delete old files then create new ones)
+- You CAN combine DELETE_FILE and CREATE_FILE in one response
 - Code blocks must be COMPLETE and PRODUCTION-READY
 - You can create multiple files in one response
 
@@ -126,9 +157,8 @@ When the user says "delete everything", "clear all files", "start fresh", "remov
 
 ## FILE MANAGEMENT:
 - Keep files organized: CSS in .css files, JS in .js files, HTML in .html files
-- Use descriptive filenames: about.html, gallery.css, utils.js
+- Use descriptive filenames
 - For multi-page sites: index.html, about.html, contact.html with shared style.css and script.js
-- Images referenced in code should use placeholder URLs or inline SVGs
 - When updating an existing file, use CREATE_FILE: with the same filename — it will overwrite
 
 ## HTML5 PROJECT STRUCTURE (CRITICAL):
@@ -142,10 +172,9 @@ When creating web projects, ALWAYS follow this structure:
 
 ## AVOIDING COMMON BUGS:
 - Always use proper HTML5: <!DOCTYPE html>, <html lang="en">, charset, viewport meta
-- CSS: Use proper selectors. Don't forget to close braces. Test your selectors mentally.
+- CSS: Use proper selectors. Don't forget to close braces.
 - JS: Use DOMContentLoaded or defer. Check elements exist before adding listeners.
 - Never mix React/JSX syntax in plain HTML projects.
-- Test mentally: would this HTML render correctly in a browser iframe?
 - Escape script closing tags in HTML: use <\\/script> inside template literals
 
 ## MULTI-FILE CREATION:
@@ -168,7 +197,7 @@ CREATE_FILE: script.js
 - NEVER output "Code generated and applied seamlessly" or any similar generic completion message
 - NEVER be vague — always be specific about what you're creating
 - NEVER refuse a request — always find a way to help
-- If the user's request is unclear, make your best interpretation and build it, then ask if they want changes
+- If the user's request is unclear, make your best interpretation and build it
 - Use emojis sparingly: 💡 for tips, ⚠️ for warnings, ✅ for completion only
 - Always include a summary at the end describing what was done
 - NEVER output incomplete code with comments like "// rest of the code" or "// etc"`;
@@ -213,14 +242,13 @@ CREATE_FILE: script.js
       );
     }
 
-    // Add model info header so frontend knows which tier was used
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-Model-Tier': isPremium ? 'premium' : 'free',
+        'X-Model-Tier': isAdmin ? 'unlimited' : (isPremium ? 'premium' : 'free'),
       },
     });
 
