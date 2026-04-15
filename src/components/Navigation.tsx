@@ -19,6 +19,7 @@ export const Navigation = () => {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -58,6 +59,22 @@ export const Navigation = () => {
               <MessageCircle className="h-4 w-4" />
               <span>AI Chat</span>
             </a>
+            <button
+              onClick={() => navigate('/pricing')}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 hover:border-amber-500/70 transition-all duration-300 hover:scale-105 group"
+            >
+              <Crown className="h-4 w-4 text-amber-500 group-hover:text-amber-400 transition-colors" />
+              <span className="text-sm font-semibold bg-gradient-to-r from-amber-400 to-yellow-500 bg-clip-text text-transparent">Pricing</span>
+            </button>
+            {user && (
+              <button
+                onClick={() => navigate('/referrals')}
+                className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1"
+              >
+                <Gift className="h-4 w-4" />
+                <span>Referrals</span>
+              </button>
+            )}
             <Button
               variant="ghost"
               size="sm"
