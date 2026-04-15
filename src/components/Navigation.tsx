@@ -8,7 +8,8 @@ import { WorkspaceSettings } from "./WorkspaceSettings";
 import { ApiConfigModal } from "./ApiConfigModal";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle, Folder, Key } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, X, Settings, Brain, MessageCircle, Folder, Key, Crown, Gift } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export const Navigation = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
