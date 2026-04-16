@@ -127,12 +127,22 @@ export const useChat = (projectId?: string) => {
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-      const updateAssistant = (content: string) => {
+      let pendingContent = '';
+      let rafId: number | null = null;
+      const flushUpdate = () => {
+        const c = pendingContent;
         setMessages(prev => {
           const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = { role: 'assistant', content };
+          newMessages[newMessages.length - 1] = { role: 'assistant', content: c };
           return newMessages;
         });
+        rafId = null;
+      };
+      const updateAssistant = (content: string) => {
+        pendingContent = content;
+        if (!rafId) {
+          rafId = requestAnimationFrame(flushUpdate);
+        }
       };
 
       let hasStartedCoding = false;
