@@ -86,13 +86,19 @@ export const AICodingScreen = ({ isActive, filename, code, onClose }: AICodingSc
   };
 
   const highlightSyntax = (line: string) => {
-    // Simple syntax highlighting
-    return line
-      .replace(/(const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type)/g, '<span class="text-purple-400">$1</span>')
-      .replace(/('.*?'|".*?")/g, '<span class="text-green-400">$1</span>')
+    // SECURITY: escape HTML first to prevent XSS via AI-generated content
+    const escaped = line
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    return escaped
+      .replace(/\b(const|let|var|function|return|import|export|from|if|else|for|while|class|interface|type)\b/g, '<span class="text-purple-400">$1</span>')
+      .replace(/(&#039;[^&]*?&#039;|&quot;[^&]*?&quot;)/g, '<span class="text-green-400">$1</span>')
       .replace(/(\/\/.*$)/gm, '<span class="text-gray-500">$1</span>')
-      .replace(/(\d+)/g, '<span class="text-orange-400">$1</span>')
-      .replace(/(true|false|null|undefined)/g, '<span class="text-red-400">$1</span>');
+      .replace(/\b(\d+)\b/g, '<span class="text-orange-400">$1</span>')
+      .replace(/\b(true|false|null|undefined)\b/g, '<span class="text-red-400">$1</span>');
   };
 
   return (

@@ -53,6 +53,7 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
 import { BulbIcon } from '@/components/BulbIcon';
+import { useCredits } from '@/hooks/useCredits';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -112,35 +113,7 @@ const CopilotPanel = ({
   const [tokenSpeed, setTokenSpeed] = useState(0);
   const tokenCountRef = useRef(0);
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [credits, setCredits] = useState<{ daily_remaining: number; total_available: number; resets_at: string } | null>(null);
-
-  // Fetch credits
-  useEffect(() => {
-    const fetchCredits = async () => {
-      try {
-        const { data } = await supabase.rpc('get_my_credit_summary');
-        if (data) {
-          const d = data as any;
-          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
-        }
-      } catch {}
-    };
-    fetchCredits();
-    const interval = setInterval(fetchCredits, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Refresh credits after each message
-  useEffect(() => {
-    if (!isLoading && messages.length > 0) {
-      supabase.rpc('get_my_credit_summary').then(({ data }) => {
-        if (data) {
-          const d = data as any;
-          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
-        }
-      });
-    }
-  }, [isLoading, messages.length]);
+  const { credits } = useCredits();
 
   // Auto-scroll to bottom during streaming
   useEffect(() => {
@@ -272,14 +245,15 @@ const CopilotPanel = ({
       <div className="p-3 md:p-4 border-b bg-card/50 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <div className="relative w-10 h-10 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/20">
               <BulbIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-background" />
             </div>
-            <div>
+            <div className="flex flex-col leading-tight">
               <h2 className="text-base md:text-lg font-bold bg-gradient-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">
                 BulbAI
               </h2>
-              <p className="text-[10px] md:text-xs text-muted-foreground">AI Copilot • Powered by Gemini</p>
+              <p className="text-[10px] md:text-xs text-muted-foreground">AI Copilot • Powered by Claude Opus 4.5</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={clearMessages}>
@@ -708,8 +682,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const { data: filesData, error: filesError } = await supabase.from('project_files').select('*').eq('project_id', projectId).order('file_path');
       if (filesError) throw filesError;
-      setFiles(filesData);
-      if (filesData.length > 0) { setActiveFile(filesData[0].file_path); setFileContent(filesData[0].file_content); }
+      // Preserve client-side deletions: don't re-add files the user already deleted in this session
+      setFiles(prev => {
+        // If we have local state already, only keep the intersection of server files and not-yet-deleted ones
+        if (prev.length === 0) return filesData;
+        const localPaths = new Set(prev.map(f => f.file_path));
+        return filesData.filter((f: any) => localPaths.has(f.file_path));
+      });
+      if (filesData.length > 0 && !activeFile) { setActiveFile(filesData[0].file_path); setFileContent(filesData[0].file_content); }
     } catch (error) {
       console.error('Error:', error);
       toast({ title: 'Error', description: 'Failed to load project', variant: 'destructive' });

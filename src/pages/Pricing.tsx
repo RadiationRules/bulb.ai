@@ -57,7 +57,7 @@ const tiers = [
     badge: 'Most Popular',
     features: [
       '500 AI credits/day (resets midnight UTC)',
-      'Premium Gemini 2.5 Pro model',
+      'Premium Claude Opus 4.5 model',
       'Unlimited public projects',
       '20 private projects',
       'Priority support',
