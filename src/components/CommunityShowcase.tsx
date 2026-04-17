@@ -253,7 +253,7 @@ export const CommunityShowcase = ({ userId }: CommunityShowcaseProps) => {
                   projects.map((project) => (
                     <div
                       key={project.id}
-                      onClick={() => navigate(`/workspace/${project.id}`)}
+                      onClick={() => navigate(`/p/${project.id}`)}
                       className="p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 cursor-pointer transition-all group"
                     >
                       <div className="flex items-start gap-3">
