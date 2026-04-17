@@ -53,6 +53,7 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { SuggestionChips } from '@/components/SuggestionChips';
 import { AiActivityIndicator } from '@/components/AiActivityIndicator';
 import { BulbIcon } from '@/components/BulbIcon';
+import { useCredits } from '@/hooks/useCredits';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
@@ -112,35 +113,7 @@ const CopilotPanel = ({
   const [tokenSpeed, setTokenSpeed] = useState(0);
   const tokenCountRef = useRef(0);
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [credits, setCredits] = useState<{ daily_remaining: number; total_available: number; resets_at: string } | null>(null);
-
-  // Fetch credits
-  useEffect(() => {
-    const fetchCredits = async () => {
-      try {
-        const { data } = await supabase.rpc('get_my_credit_summary');
-        if (data) {
-          const d = data as any;
-          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
-        }
-      } catch {}
-    };
-    fetchCredits();
-    const interval = setInterval(fetchCredits, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Refresh credits after each message
-  useEffect(() => {
-    if (!isLoading && messages.length > 0) {
-      supabase.rpc('get_my_credit_summary').then(({ data }) => {
-        if (data) {
-          const d = data as any;
-          setCredits({ daily_remaining: d.daily_remaining, total_available: d.total_available, resets_at: d.resets_at });
-        }
-      });
-    }
-  }, [isLoading, messages.length]);
+  const { credits } = useCredits();
 
   // Auto-scroll to bottom during streaming
   useEffect(() => {
@@ -709,8 +682,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const { data: filesData, error: filesError } = await supabase.from('project_files').select('*').eq('project_id', projectId).order('file_path');
       if (filesError) throw filesError;
-      setFiles(filesData);
-      if (filesData.length > 0) { setActiveFile(filesData[0].file_path); setFileContent(filesData[0].file_content); }
+      // Preserve client-side deletions: don't re-add files the user already deleted in this session
+      setFiles(prev => {
+        // If we have local state already, only keep the intersection of server files and not-yet-deleted ones
+        if (prev.length === 0) return filesData;
+        const localPaths = new Set(prev.map(f => f.file_path));
+        return filesData.filter((f: any) => localPaths.has(f.file_path));
+      });
+      if (filesData.length > 0 && !activeFile) { setActiveFile(filesData[0].file_path); setFileContent(filesData[0].file_content); }
     } catch (error) {
       console.error('Error:', error);
       toast({ title: 'Error', description: 'Failed to load project', variant: 'destructive' });
