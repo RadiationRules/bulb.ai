@@ -12,24 +12,34 @@ interface Message {
 
 const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
 
+// Module-level cache so chat persists across tab switches/component remounts
+const chatCache = new Map<string, Message[]>();
+const inFlightRef = new Map<string, AbortController>();
+
 export const useChat = (projectId?: string) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const cacheKey = projectId || '__global__';
+  const [messages, setMessages] = useState<Message[]>(() => chatCache.get(cacheKey) || []);
+  const [isLoading, setIsLoading] = useState(() => inFlightRef.has(cacheKey));
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [aiStage, setAiStage] = useState<AiStage>('idle');
   const [stageDetail, setStageDetail] = useState<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadedRef = useRef(false);
 
-  // Load persisted messages on mount
+  // Sync local state with shared cache (when tabs swap)
+  useEffect(() => {
+    chatCache.set(cacheKey, messages);
+  }, [messages, cacheKey]);
+
+  // Load persisted messages on mount (only if cache empty)
   useEffect(() => {
     if (!projectId || loadedRef.current) return;
     loadedRef.current = true;
+    if (chatCache.get(cacheKey)?.length) return;
 
     const loadMessages = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
       const { data } = await supabase
         .from('chat_messages')
         .select('role, content')
@@ -37,29 +47,21 @@ export const useChat = (projectId?: string) => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: true })
         .limit(100);
-
       if (data && data.length > 0) {
-        setMessages(data.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+        const loaded = data.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+        chatCache.set(cacheKey, loaded);
+        setMessages(loaded);
       }
     };
-
     loadMessages();
-  }, [projectId]);
+  }, [projectId, cacheKey]);
 
-  // Persist a message to Supabase
   const persistMessage = async (role: 'user' | 'assistant', content: string) => {
     if (!projectId) return;
-    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      await supabase.from('chat_messages').insert({
-        project_id: projectId,
-        user_id: user.id,
-        role,
-        content
-      });
+      await supabase.from('chat_messages').insert({ project_id: projectId, user_id: user.id, role, content });
     } catch (err) {
       console.error('Failed to persist message:', err);
     }
@@ -68,31 +70,33 @@ export const useChat = (projectId?: string) => {
   const streamChat = async (userMessage: string, displayMessage?: string, images?: string[]) => {
     try {
       const validatedMessage = messageSchema.parse(userMessage);
-      
-      const newUserMessage: Message = { 
-        role: 'user', 
+
+      const newUserMessage: Message = {
+        role: 'user',
         content: displayMessage || validatedMessage,
-        images 
+        images,
       };
-      setMessages(prev => [...prev, newUserMessage]);
+      setMessages(prev => {
+        const next = [...prev, newUserMessage];
+        chatCache.set(cacheKey, next);
+        return next;
+      });
       setIsLoading(true);
       setCurrentFile(null);
       setAiStage('thinking');
       setStageDetail('Planning approach...');
 
-      // Persist user message
       persistMessage('user', displayMessage || validatedMessage);
 
-      abortControllerRef.current = new AbortController();
-      
-      const messagesWithContext = [...messages, { role: 'user' as const, content: userMessage }];
-      
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      inFlightRef.set(cacheKey, controller);
+
+      const messagesWithContext = [...(chatCache.get(cacheKey) || []), { role: 'user' as const, content: userMessage }];
+
       const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Please sign in to use the AI assistant');
-      }
-      
+      if (!session) throw new Error('Please sign in to use the AI assistant');
+
       const response = await fetch(
         `https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat`,
         {
@@ -101,20 +105,15 @@ export const useChat = (projectId?: string) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ 
-            messages: messagesWithContext,
-            images: images || null 
-          }),
-          signal: abortControllerRef.current.signal,
+          body: JSON.stringify({ messages: messagesWithContext, images: images || null }),
+          signal: controller.signal,
         }
       );
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-        
         if (response.status === 429) throw new Error('Rate limit exceeded. Please wait a moment.');
-        if (response.status === 402) throw new Error('No credits remaining. Credits reset at midnight UTC. [Upgrade your plan](/pricing) for more credits.');
-
+        if (response.status === 402) throw new Error('Credits used for the day — switched to free tier. Upgrade at /pricing for more.');
         throw new Error(errorData.error || `API Error: ${response.status}`);
       }
 
@@ -125,24 +124,43 @@ export const useChat = (projectId?: string) => {
       let buffer = '';
       let assistantContent = '';
 
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+      setMessages(prev => {
+        const next = [...prev, { role: 'assistant' as const, content: '' }];
+        chatCache.set(cacheKey, next);
+        return next;
+      });
 
+      // Smooth typewriter: drip incoming content out at a steady cadence (~80 chars/frame max)
       let pendingContent = '';
+      let displayedLen = 0;
       let rafId: number | null = null;
+
       const flushUpdate = () => {
-        const c = pendingContent;
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = { role: 'assistant', content: c };
-          return newMessages;
-        });
-        rafId = null;
+        // Reveal up to 4 chars per frame for a natural typing feel.
+        // If the buffer is huge (e.g. paste), accelerate so we don't fall too far behind.
+        const remaining = pendingContent.length - displayedLen;
+        const step = remaining > 400 ? Math.ceil(remaining / 30) : Math.min(8, remaining);
+        if (step > 0) {
+          displayedLen = Math.min(pendingContent.length, displayedLen + step);
+          const visible = pendingContent.slice(0, displayedLen);
+          setMessages(prev => {
+            if (!prev.length) return prev;
+            const next = prev.slice();
+            next[next.length - 1] = { role: 'assistant', content: visible };
+            chatCache.set(cacheKey, next);
+            return next;
+          });
+        }
+        if (displayedLen < pendingContent.length) {
+          rafId = requestAnimationFrame(flushUpdate);
+        } else {
+          rafId = null;
+        }
       };
+
       const updateAssistant = (content: string) => {
         pendingContent = content;
-        if (!rafId) {
-          rafId = requestAnimationFrame(flushUpdate);
-        }
+        if (!rafId) rafId = requestAnimationFrame(flushUpdate);
       };
 
       let hasStartedCoding = false;
@@ -170,20 +188,15 @@ export const useChat = (projectId?: string) => {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-        
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
-
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || trimmed.startsWith(':')) continue;
           if (!trimmed.startsWith('data: ')) continue;
-
           const data = trimmed.slice(6);
           if (data === '[DONE]') continue;
-
           try {
             const parsed = JSON.parse(data);
             const delta = parsed.choices?.[0]?.delta?.content;
@@ -192,31 +205,23 @@ export const useChat = (projectId?: string) => {
               detectFile(assistantContent);
               updateAssistant(assistantContent);
             }
-          } catch {
-            // Skip malformed JSON
-          }
-        }
-      }
-
-      // Process remaining buffer
-      if (buffer.trim()) {
-        const trimmed = buffer.trim();
-        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
-          try {
-            const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              assistantContent += delta;
-              updateAssistant(assistantContent);
-            }
           } catch {}
         }
       }
 
-      // Persist assistant response
-      if (assistantContent) {
-        persistMessage('assistant', assistantContent);
-      }
+      // Final flush — make sure full content is rendered even if RAF hasn't caught up
+      if (rafId) cancelAnimationFrame(rafId);
+      pendingContent = assistantContent;
+      displayedLen = assistantContent.length;
+      setMessages(prev => {
+        if (!prev.length) return prev;
+        const next = prev.slice();
+        next[next.length - 1] = { role: 'assistant', content: assistantContent };
+        chatCache.set(cacheKey, next);
+        return next;
+      });
+
+      if (assistantContent) persistMessage('assistant', assistantContent);
 
       setAiStage('done');
       setStageDetail('Complete');
@@ -224,6 +229,10 @@ export const useChat = (projectId?: string) => {
       setIsLoading(false);
       setCurrentFile(null);
       abortControllerRef.current = null;
+      inFlightRef.delete(cacheKey);
+
+      // Notify credit listeners
+      window.dispatchEvent(new CustomEvent('bulbai:credits-changed'));
     } catch (error: any) {
       console.error('Chat error:', error);
       setIsLoading(false);
@@ -231,36 +240,39 @@ export const useChat = (projectId?: string) => {
       setAiStage('idle');
       setStageDetail('');
       abortControllerRef.current = null;
-      
+      inFlightRef.delete(cacheKey);
+
       if (error.name === 'AbortError') return;
-      
-      const errorMsg = error instanceof z.ZodError 
+
+      const errorMsg = error instanceof z.ZodError
         ? `Validation: ${error.errors[0].message}`
         : error.message || 'Unknown error';
-      
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: `⚠️ ${errorMsg}` }
-      ]);
+
+      setMessages(prev => {
+        const next = [...prev, { role: 'assistant' as const, content: `⚠️ ${errorMsg}` }];
+        chatCache.set(cacheKey, next);
+        return next;
+      });
     }
   };
 
   const clearMessages = useCallback(async () => {
+    chatCache.set(cacheKey, []);
     setMessages([]);
-    // Also clear persisted messages
     if (projectId) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('chat_messages').delete().eq('project_id', projectId).eq('user_id', user.id);
       }
     }
-  }, [projectId]);
-  
+  }, [projectId, cacheKey]);
+
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
+    inFlightRef.delete(cacheKey);
     setIsLoading(false);
     setCurrentFile(null);
-  }, []);
+  }, [cacheKey]);
 
   return {
     messages,

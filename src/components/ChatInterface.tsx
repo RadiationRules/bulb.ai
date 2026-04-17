@@ -186,7 +186,7 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             </div>
             <div className="flex items-center gap-1">
               <Zap className="w-3 h-3 text-yellow-500" />
-              <p className="text-xs text-muted-foreground">Powered by <span className="text-primary font-semibold">GPT-5</span></p>
+              <p className="text-xs text-muted-foreground">Powered by <span className="text-primary font-semibold">Claude Opus 4.5</span></p>
             </div>
           </div>
         </div>
@@ -210,7 +210,7 @@ export const ChatInterface = ({ isFullscreen, onToggleFullscreen, onClose }: Cha
             <div className="text-center py-12">
               <BulbIcon className="w-16 h-16 mx-auto mb-4 opacity-50" animated />
               <h3 className="text-lg font-semibold mb-2">Welcome to BulbAI</h3>
-              <p className="text-muted-foreground">Powered by GPT-5 - Ask me anything!</p>
+              <p className="text-muted-foreground">Powered by Claude Opus 4.5 — Ask me anything!</p>
             </div>
           )}
           
