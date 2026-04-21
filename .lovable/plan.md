@@ -1,126 +1,110 @@
+# BulbAI Improvement Plan — Smoother AI, Bulletproof Workspace, Better UX
 
-
-## BulbAI Feature Improvement & Enhancement Plan
-
-### Priority Fixes (from your requests)
-
-#### 1. Upload Preview Image Replaces Default Image
-- In `ProjectSettingsModal.tsx`, the image upload currently uses `URL.createObjectURL` (local only, lost on reload)
-- Fix: Upload to Supabase Storage `project-assets` bucket, save the public URL to `projects.preview_image` column
-- When user uploads a preview image, it overwrites the default SVG data URI
-- Dashboard cards already read `preview_image` so they'll show the uploaded one automatically
-
-#### 2. Show AI Thinking Like Lovable (Auto-Close When Typing)
-- Currently `AiActivityIndicator` shows Reading/Thinking/Coding stages inline in chat
-- Enhance: Make the thinking indicator a collapsible overlay that auto-collapses when the AI starts outputting text to the chat
-- During "reading" and "thinking" stages, show an expanded card with pulsing animation and detail text
-- When stage transitions to "coding" and text starts streaming, smoothly collapse the indicator to a minimal inline badge
-- Add a "Show thinking" toggle so users can expand it again if curious
+Monetization is set aside. Focus: reliability, performance, polish.
 
 ---
 
-### New Features & Improvements List
+## 1. AI Copilot — kill every glitch
 
-#### 3. AI Image Upload in Copilot
-- Add an image attach button next to the chat input (camera/paperclip icon)
-- Users can upload screenshots, mockups, or reference images
-- Images sent to the AI via the existing `images` parameter in `useChat`
-- AI can analyze the image and generate matching code
+**Streaming**
+- Replace ad-hoc rAF batching with one typewriter scheduler (1–3 chars/frame) for a real typing feel.
+- Persist in-flight streams in a module-level `Map<projectId, { controller, buffer }>` so tab switches NEVER restart, drop, or duplicate a response.
+- Flush buffer on `done` and unmount; cancel only on explicit user action.
+- Add a visible **Stop generating** button.
 
-#### 4. Multi-Tab Editor (Like VS Code Tabs)
-- Show open files as tabs above the editor instead of just the current file badge
-- Click tabs to switch, middle-click or X to close
-- Tracks which files are open in state, persists across session
+**SSE robustness**
+- Harden CRLF / `:` keepalive / partial JSON / `[DONE]` handling; add unit tests in the edge function.
+- Surface 429 / 402 / 500 as friendly toasts with retry CTA.
 
-#### 5. Find & Replace in Editor
-- Add Ctrl+H shortcut and a find/replace bar in the Monaco editor
-- Monaco already supports this natively, just need to enable the actions
+**Conversation correctness**
+- Dedupe assistant bubbles by message id on remount.
+- Preserve scroll position + show "scroll to bottom" pill when user scrolls up mid-stream.
+- Optimistic insert into `chat_messages` with reconciliation.
 
-#### 6. Split Editor View
-- Allow users to split the editor horizontally to view two files side by side
-- Useful when AI creates multiple files and user wants to compare
-
-#### 7. Real-Time Preview Panel (Inline)
-- Instead of only "open in new tab", add an inline iframe preview panel
-- Toggle between code and preview with a split view
-- Auto-refreshes when files change
-
-#### 8. AI Context Improvements
-- Send full file tree structure to AI so it knows what exists
-- Include file sizes and types for better context
-- AI can reference and modify any file, not just the active one
-
-#### 9. Snippet Library
-- Save frequently used code snippets
-- Quick-insert into any file
-- Personal snippet collection stored in Supabase
-
-#### 10. Project Export Options
-- Export as ZIP (already exists but improve)
-- Export to GitHub (connect repo, push files)
-- Export as static site bundle ready for any host
-
-#### 11. Collaborative Editing Improvements
-- Show other users' cursors in real-time (already partially implemented)
-- Add a "who's online" indicator in the header
-- Chat between collaborators within the workspace
-
-#### 12. Mobile Workspace Improvements
-- Bottom navigation bar for mobile with key actions
-- Swipe between file tree, editor, and AI panel
-- Touch-friendly file tree with long-press context menus
-
-#### 13. AI Code Explanations
-- "Explain this code" button on any file
-- AI breaks down the code line-by-line in plain English
-- Useful for learning and debugging
-
-#### 14. Project Analytics Dashboard
-- View count, unique visitors, deploy frequency
-- Chart of activity over time
-- Show on project settings and dashboard cards
-
-#### 15. Custom Themes for Editor
-- Let users pick Monaco editor themes beyond vs-dark
-- Add BulbAI custom theme with amber/yellow accents
-- Theme picker in settings modal
-
-#### 16. Keyboard Shortcut Customization
-- Show all available shortcuts in a modal (Ctrl+?)
-- Let users remap shortcuts
-- Display shortcut hints on buttons
-
-#### 17. AI Template Generation
-- "Generate a landing page", "Generate a portfolio" quick templates
-- AI creates complete multi-file projects from a single prompt
-- Template gallery with previews
-
-#### 18. Error Console in Workspace
-- Capture and display JavaScript errors from the preview iframe
-- Show errors inline with red badges
-- One-click "Fix this error" sends it to the AI
-
-#### 19. CSS Visual Editor
-- Click on elements in preview to edit styles visually
-- Color pickers, margin/padding controls, font selectors
-- Changes sync back to CSS files
-
-#### 20. Deploy History & Rollback
-- Show all previous deployments with URLs and timestamps
-- One-click rollback to any previous deployment
-- Compare current vs deployed version
+**Branding**
+- Finish the "Claude Opus 4.5" rename sweep (system prompts, UI labels, model selector, memory). Backing model stays Gemini 2.5 Pro.
 
 ---
 
-### Technical Details
+## 2. Workspace — no lost work, no jank
 
-**Files to modify for Priority Fixes:**
-- `src/components/ProjectSettingsModal.tsx` — Real Supabase Storage upload for preview images, save URL to `preview_image` column
-- `src/components/AiActivityIndicator.tsx` — Add auto-collapse behavior, expanded/collapsed states, smooth transition animations
-- `src/pages/Workspace.tsx` — Pass collapse trigger based on streaming state, handle thinking overlay dismiss
-- `src/hooks/useChat.tsx` — Emit clearer stage transition signals for the collapse logic
+**File integrity**
+- File tree = single source of truth. Deletions write through to Supabase immediately; tombstone prevents re-hydration on tab refocus.
+- Auto-save indicator (`saving / saved / error`) in the header.
+- 5-second **undo delete** toast.
 
-**Storage:** Uses existing `project-assets` bucket (already public)
+**Tab + visibility**
+- Keep editor / preview / copilot mounted via CSS visibility on tab change. Audit every panel.
+- Pause linter and preview rebuild when `document.hidden`; resume on focus without remount.
 
-**No database migrations needed** for the two priority fixes — `preview_image` column and `project-assets` bucket already exist.
+**Editor polish**
+- Monaco: bracket-pair colorization, sticky scroll, format-on-save, themed to glassmorphism palette.
+- Fix BulbAI logo / AI profile alignment in copilot header (flex gap + consistent avatar size).
+- Eliminate layout shift from the AI activity indicator.
 
+**Preview**
+- Reliable inline CSS/JS into blob URL; auto-reload on save (debounced) + manual reload button.
+- Capture iframe runtime errors in a small overlay.
+
+---
+
+## 3. Realtime + persistence
+
+- Real-time credit balance with subtle pulse on change (hook already in place).
+- Realtime project files for collaborators (channel per `project_id`).
+- Presence indicator shows live cursors only for users actively in the file.
+
+---
+
+## 4. Performance
+
+- `React.lazy` for `/workspace`, `/chat`, `/project/:id`.
+- Memoize `FileTree`; virtualize chat message list past ~100 messages.
+- Remove `transition-all` on streaming text to kill repaint jank.
+- Lighthouse pass, target ≥ 90 on landing + dashboard.
+
+---
+
+## 5. Stability safety net
+
+- `ErrorBoundary` around every top-level route with "Reload / Report" UI.
+- Global toast for unhandled promise rejections.
+- Lightweight `/log-client-error` edge function for telemetry.
+
+---
+
+## 6. UX polish
+
+- Logo in nav always returns to `/` (verify on every page).
+- Consistent 1.5 s toasts, bottom-left.
+- `Ctrl+/` overlay lists every shortcut.
+- Empty states for: no projects, no chats, no notifications, no collaborators.
+- Skeleton loaders instead of spinners on dashboard, explore, project pages.
+
+---
+
+## 7. Public Explore + Showcase
+
+- Showcase: large preview iframe, big **Remix** + **Visit Live**, author card, tags, view/star counts.
+- Explore: filter + sort (newest, most starred, most remixed).
+- Block public toggle until deployed (already enforced) + friendly "Deploy now" shortcut when blocked.
+
+---
+
+## 8. Security finish line
+
+- Resolve remaining Supabase linter warnings.
+- Audit every edge function: JWT check, zod input validation, CORS, friendly error envelopes.
+- Per-bucket storage policy review.
+
+---
+
+## Execution order
+
+1. AI streaming + tab persistence (biggest pain)
+2. Workspace file integrity + auto-save indicator
+3. Logo / layout polish + branding sweep
+4. Showcase + explore polish
+5. Performance + code-splitting
+6. Error boundaries + telemetry
+7. Security + linter cleanup
