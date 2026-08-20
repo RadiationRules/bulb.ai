@@ -13,9 +13,6 @@ import Workspace from "./pages/Workspace";
 import Project from "./pages/Project";
 import Collaborate from "./pages/Collaborate";
 import Chat from "./pages/Chat";
-import Pricing from "./pages/Pricing";
-import Referrals from "./pages/Referrals";
-import ProjectShowcase from "./pages/ProjectShowcase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,9 +30,6 @@ const AnimatedRoutes = () => {
         <Route path="/project/:projectId" element={<Project />} />
         <Route path="/project/:projectId/collaborate" element={<Collaborate />} />
         <Route path="/workspace/:projectId" element={<Workspace />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/referrals" element={<Referrals />} />
-        <Route path="/p/:projectId" element={<ProjectShowcase />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

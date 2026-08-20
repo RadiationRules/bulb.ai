@@ -342,7 +342,7 @@ export const CommunityExplore = () => {
         {/* Preview Image */}
         <div 
           className="relative aspect-video overflow-hidden bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center"
-          onClick={() => navigate(`/p/${project.id}`)}
+          onClick={() => navigate(`/workspace/${project.id}`)}
         >
           {project.preview_image && !project.preview_image.startsWith('data:image/svg') ? (
             <img src={project.preview_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -422,33 +422,19 @@ export const CommunityExplore = () => {
                 {formatNumber(project.forks_count)}
               </span>
             </div>
-            <div className="flex gap-1.5">
-              <Button
-                size="sm"
-                variant="default"
-                className="h-7 text-xs bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white border-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/p/${project.id}`);
-                }}
-              >
-                <Eye className="w-3 h-3 mr-1" />
-                View
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemix(project);
-                }}
-                disabled={isRemixing}
-              >
-                <Copy className="w-3 h-3 mr-1" />
-                {isRemixing ? '...' : 'Remix'}
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemix(project);
+              }}
+              disabled={isRemixing}
+            >
+              <Copy className="w-3 h-3 mr-1" />
+              {isRemixing ? 'Remixing...' : 'Remix'}
+            </Button>
           </div>
         </CardContent>
       </Card>

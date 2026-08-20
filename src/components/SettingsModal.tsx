@@ -40,7 +40,6 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
     performanceMode: "balanced"
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [adminCode, setAdminCode] = useState('');
 
   // Load user preferences on mount
   useEffect(() => {
@@ -63,7 +62,6 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
         if (preferences.ai_settings) {
           const aiSettings = preferences.ai_settings as any;
           setChatSpeed([aiSettings.chatSpeed || 50]);
-          setAdminCode(aiSettings.admin_code || '');
           setSettings(prev => ({
             ...prev,
             betaFeatures: aiSettings.betaFeatures || false,
@@ -108,8 +106,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
           ai_settings: {
             chatSpeed: chatSpeed[0],
             betaFeatures: settings.betaFeatures,
-            performanceMode: settings.performanceMode,
-            admin_code: adminCode || undefined,
+            performanceMode: settings.performanceMode
           },
           updated_at: new Date().toISOString()
         });
@@ -315,18 +312,6 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     checked={settings.betaFeatures}
                     onCheckedChange={(checked) => setSettings({...settings, betaFeatures: checked})}
                   />
-                </div>
-                <div className="space-y-2 pt-4 border-t border-border/50">
-                  <Label htmlFor="admin-code">Admin Code (for unlimited credits)</Label>
-                  <Input
-                    id="admin-code"
-                    type="password"
-                    value={adminCode}
-                    onChange={(e) => setAdminCode(e.target.value)}
-                    placeholder="Enter admin code..."
-                    className="font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground">If you have an admin code, enter it here and save to unlock unlimited AI credits.</p>
                 </div>
               </div>
             </Card>
