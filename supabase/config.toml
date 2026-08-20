@@ -26,3 +26,9 @@ verify_jwt = true
 
 [functions.deploy-vercel]
 verify_jwt = true
+
+[functions.deploy-bulbai]
+verify_jwt = true
+
+[functions.serve-site]
+verify_jwt = false
