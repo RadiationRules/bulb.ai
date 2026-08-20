@@ -22,23 +22,25 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      sessionStorage.setItem('bulbai_post_auth_redirect', window.location.pathname);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
         }
       });
       if (error) throw error;
-      toast({ title: "Success", description: "Redirecting to Google..." });
     } catch (error: any) {
       toast({ 
-        title: "Error", 
+        title: "Google sign-in failed", 
         description: error.message || "Failed to sign in with Google",
         variant: "destructive" 
       });
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
+
 
   const handleEmailSignIn = async () => {
     if (!email || !password) return;
