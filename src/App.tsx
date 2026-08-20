@@ -8,6 +8,8 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AmbientEffects } from "@/components/AmbientEffects";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import AuthCallback from "./pages/AuthCallback";
+
 import Dashboard from "./pages/Dashboard";
 import Workspace from "./pages/Workspace";
 import Project from "./pages/Project";
