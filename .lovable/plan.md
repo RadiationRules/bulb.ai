@@ -1,126 +1,55 @@
+# BulbAI: Auth Fix, Smarter AI, and Multi-Target Deployment
 
+## 1. Fix "Continue with Google"
 
-## BulbAI Feature Improvement & Enhancement Plan
+Google is enabled in Supabase, so the failure is almost certainly redirect handling on our side.
 
-### Priority Fixes (from your requests)
+- Redirect to `${window.location.origin}/dashboard` instead of `/` (the landing page doesn't wait for the OAuth session), and add `queryParams: { access_type: 'offline', prompt: 'select_account' }`.
+- Add a `/auth/callback` route that waits for the Supabase session, then routes to `/dashboard` (or back to the page the user started on, stored before redirect).
+- Surface the real error instead of a generic toast: show provider errors returned in the URL hash (`error_description`) after redirect.
+- Add the Google button to `/auth` too (currently only in `AuthModal`), so both entry points match.
+- Ensure a profile row exists after OAuth sign-up (fallback insert if the trigger didn't run for a Google identity).
 
-#### 1. Upload Preview Image Replaces Default Image
-- In `ProjectSettingsModal.tsx`, the image upload currently uses `URL.createObjectURL` (local only, lost on reload)
-- Fix: Upload to Supabase Storage `project-assets` bucket, save the public URL to `projects.preview_image` column
-- When user uploads a preview image, it overwrites the default SVG data URI
-- Dashboard cards already read `preview_image` so they'll show the uploaded one automatically
+Checklist for you (needed for OAuth to succeed at all):
+- Supabase → Authentication → URL Configuration: Site URL = `https://bulb-ai.lovable.app`, Redirect URLs must include `https://bulb-ai.lovable.app/**` and the preview URL `https://id-preview--3da6eadd-fec8-4ddb-bef4-697645443995.lovable.app/**`.
+- Google Cloud OAuth client → Authorized redirect URI must be `https://thpdlrhpodjysrfsokqo.supabase.co/auth/v1/callback`.
 
-#### 2. Show AI Thinking Like Lovable (Auto-Close When Typing)
-- Currently `AiActivityIndicator` shows Reading/Thinking/Coding stages inline in chat
-- Enhance: Make the thinking indicator a collapsible overlay that auto-collapses when the AI starts outputting text to the chat
-- During "reading" and "thinking" stages, show an expanded card with pulsing animation and detail text
-- When stage transitions to "coding" and text starts streaming, smoothly collapse the indicator to a minimal inline badge
-- Add a "Show thinking" toggle so users can expand it again if curious
+## 2. Deployment: choose where to deploy
 
----
+Replace the single Vercel action with a **Deploy target picker** in the deploy overlay:
 
-### New Features & Improvements List
+- **BulbAI Hosting (default, zero setup)** — new `deploy-bulbai` edge function uploads the project's files to a new public `sites` storage bucket under `sites/<projectId>/<version>/`, then the app serves it at `/@/:slug` through a hosted-site viewer route that loads `index.html` and rewrites relative `style.css` / `script.js` / image references into a blob so it renders as a real page, not raw HTML. Instant, works for every user.
+- **Vercel (optional)** — keeps the existing static deploy, but only shown once a Vercel token is saved; explains the token step inline instead of failing.
 
-#### 3. AI Image Upload in Copilot
-- Add an image attach button next to the chat input (camera/paperclip icon)
-- Users can upload screenshots, mockups, or reference images
-- Images sent to the AI via the existing `images` parameter in `useChat`
-- AI can analyze the image and generate matching code
+Deploy flow improvements:
+- Pre-deploy validation: require `index.html`, warn on broken relative links.
+- Real status polling with a build log, then a success card with Copy URL / Open / QR.
+- Fix the repeat-deploy loop: deployment state resets on overlay close and a deploy in flight is guarded by a ref, so returning to the tab never re-triggers it.
+- Deployment history per project with target, URL, timestamp, and one-click redeploy of an older version.
+- `projects.deploy_target` + `deployments.target` columns so the dashboard shows where each project lives.
 
-#### 4. Multi-Tab Editor (Like VS Code Tabs)
-- Show open files as tabs above the editor instead of just the current file badge
-- Click tabs to switch, middle-click or X to close
-- Tracks which files are open in state, persists across session
+## 3. Smarter, more reliable AI
 
-#### 5. Find & Replace in Editor
-- Add Ctrl+H shortcut and a find/replace bar in the Monaco editor
-- Monaco already supports this natively, just need to enable the actions
+- **Balanced model routing**: default `google/gemini-3.7-flash` for chat/edits; automatically escalate to a frontier model (`openai/gpt-5.4`) when the request is a multi-file build, a debug/fix request, or the user picks "Deep build" in the model selector. Cheap fallback (`google/gemini-3.1-flash-lite`) only when credits run out.
+- **Teach it to do things correctly**: rewrite the system prompt around a plan → edit → verify loop, full-file output, an explicit project file manifest (every filename + size sent with each request so it never invents paths), HTML5 correctness rules, and a required summary. Add a self-check pass: after generating, the model validates its own HTML/CSS/JS for unclosed tags, missing links, and undefined references before finishing.
+- **Streaming quality**: single rAF-batched buffer with a fixed-rate character drain, so text types smoothly instead of arriving in chunks; stage transitions (reading → planning → coding → verifying → done) driven by actual stream events rather than timers.
+- **Reliability**: retry once on 5xx with backoff, honour `Retry-After` on 429, and never lose a partial reply — an interrupted stream is saved and can be resumed with "continue".
+- **Persistence**: chat and file state keyed per project and per user, restored on tab switch so nothing disappears.
 
-#### 6. Split Editor View
-- Allow users to split the editor horizontally to view two files side by side
-- Useful when AI creates multiple files and user wants to compare
+## 4. New / improved features (suggestions)
 
-#### 7. Real-Time Preview Panel (Inline)
-- Instead of only "open in new tab", add an inline iframe preview panel
-- Toggle between code and preview with a split view
-- Auto-refreshes when files change
+Recommended first:
+1. **Live inline preview panel** with auto-refresh on save and a console that captures iframe errors, with a one-click "Fix this error" that sends the stack to the AI.
+2. **Multi-tab editor** with Ctrl+H find/replace and a format-on-save action.
+3. **AI image input** — drop a screenshot or mockup into the copilot and have it build the matching page.
+4. **Project analytics** — views, remixes, and deploys per project, charted on the dashboard.
+5. **One-click templates → deployed site** so a new user gets a live URL in under a minute.
 
-#### 8. AI Context Improvements
-- Send full file tree structure to AI so it knows what exists
-- Include file sizes and types for better context
-- AI can reference and modify any file, not just the active one
+Also worth adding later: snippet library, custom editor themes, shortcut cheat-sheet (Ctrl+?), GitHub export, visual CSS editor, and deploy rollback.
 
-#### 9. Snippet Library
-- Save frequently used code snippets
-- Quick-insert into any file
-- Personal snippet collection stored in Supabase
+## Technical notes
 
-#### 10. Project Export Options
-- Export as ZIP (already exists but improve)
-- Export to GitHub (connect repo, push files)
-- Export as static site bundle ready for any host
-
-#### 11. Collaborative Editing Improvements
-- Show other users' cursors in real-time (already partially implemented)
-- Add a "who's online" indicator in the header
-- Chat between collaborators within the workspace
-
-#### 12. Mobile Workspace Improvements
-- Bottom navigation bar for mobile with key actions
-- Swipe between file tree, editor, and AI panel
-- Touch-friendly file tree with long-press context menus
-
-#### 13. AI Code Explanations
-- "Explain this code" button on any file
-- AI breaks down the code line-by-line in plain English
-- Useful for learning and debugging
-
-#### 14. Project Analytics Dashboard
-- View count, unique visitors, deploy frequency
-- Chart of activity over time
-- Show on project settings and dashboard cards
-
-#### 15. Custom Themes for Editor
-- Let users pick Monaco editor themes beyond vs-dark
-- Add BulbAI custom theme with amber/yellow accents
-- Theme picker in settings modal
-
-#### 16. Keyboard Shortcut Customization
-- Show all available shortcuts in a modal (Ctrl+?)
-- Let users remap shortcuts
-- Display shortcut hints on buttons
-
-#### 17. AI Template Generation
-- "Generate a landing page", "Generate a portfolio" quick templates
-- AI creates complete multi-file projects from a single prompt
-- Template gallery with previews
-
-#### 18. Error Console in Workspace
-- Capture and display JavaScript errors from the preview iframe
-- Show errors inline with red badges
-- One-click "Fix this error" sends it to the AI
-
-#### 19. CSS Visual Editor
-- Click on elements in preview to edit styles visually
-- Color pickers, margin/padding controls, font selectors
-- Changes sync back to CSS files
-
-#### 20. Deploy History & Rollback
-- Show all previous deployments with URLs and timestamps
-- One-click rollback to any previous deployment
-- Compare current vs deployed version
-
----
-
-### Technical Details
-
-**Files to modify for Priority Fixes:**
-- `src/components/ProjectSettingsModal.tsx` — Real Supabase Storage upload for preview images, save URL to `preview_image` column
-- `src/components/AiActivityIndicator.tsx` — Add auto-collapse behavior, expanded/collapsed states, smooth transition animations
-- `src/pages/Workspace.tsx` — Pass collapse trigger based on streaming state, handle thinking overlay dismiss
-- `src/hooks/useChat.tsx` — Emit clearer stage transition signals for the collapse logic
-
-**Storage:** Uses existing `project-assets` bucket (already public)
-
-**No database migrations needed** for the two priority fixes — `preview_image` column and `project-assets` bucket already exist.
-
+- New: `src/pages/AuthCallback.tsx`, `src/pages/HostedSite.tsx`, `src/components/DeployTargetPicker.tsx`, `supabase/functions/deploy-bulbai/index.ts`.
+- Changed: `AuthModal.tsx`, `Auth.tsx`, `App.tsx`, `DeploymentOverlay.tsx`, `DeploymentPanel.tsx`, `deploy-vercel/index.ts`, `chat/index.ts`, `useChat.tsx`, `Workspace.tsx`.
+- Migration: public `sites` storage bucket with owner-write / public-read policies, `projects.deploy_target`, `deployments.target`, plus GRANTs.
+- No secrets required for BulbAI Hosting; Vercel token stays optional.
