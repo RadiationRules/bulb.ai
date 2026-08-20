@@ -253,6 +253,7 @@ export type Database = {
           logs: string[] | null
           project_id: string
           status: string
+          target: string
           updated_at: string | null
           url: string | null
         }
@@ -262,6 +263,7 @@ export type Database = {
           logs?: string[] | null
           project_id: string
           status?: string
+          target?: string
           updated_at?: string | null
           url?: string | null
         }
@@ -271,6 +273,7 @@ export type Database = {
           logs?: string[] | null
           project_id?: string
           status?: string
+          target?: string
           updated_at?: string | null
           url?: string | null
         }
@@ -758,6 +761,7 @@ export type Database = {
         Row: {
           created_at: string
           custom_subdomain: string | null
+          deploy_target: string
           description: string | null
           file_structure: Json | null
           forks_count: number | null
@@ -767,6 +771,7 @@ export type Database = {
           preview_url: string | null
           repository_url: string | null
           settings: Json | null
+          site_slug: string | null
           stars_count: number | null
           tags: string[] | null
           title: string
@@ -776,6 +781,7 @@ export type Database = {
         Insert: {
           created_at?: string
           custom_subdomain?: string | null
+          deploy_target?: string
           description?: string | null
           file_structure?: Json | null
           forks_count?: number | null
@@ -785,6 +791,7 @@ export type Database = {
           preview_url?: string | null
           repository_url?: string | null
           settings?: Json | null
+          site_slug?: string | null
           stars_count?: number | null
           tags?: string[] | null
           title: string
@@ -794,6 +801,7 @@ export type Database = {
         Update: {
           created_at?: string
           custom_subdomain?: string | null
+          deploy_target?: string
           description?: string | null
           file_structure?: Json | null
           forks_count?: number | null
@@ -803,6 +811,7 @@ export type Database = {
           preview_url?: string | null
           repository_url?: string | null
           settings?: Json | null
+          site_slug?: string | null
           stars_count?: number | null
           tags?: string[] | null
           title?: string
