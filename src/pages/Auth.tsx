@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+
 
 const signInSchema = z.object({
   email: z.string().trim().email('Invalid email address').max(255, 'Email too long'),
