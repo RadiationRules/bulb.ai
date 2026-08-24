@@ -55,16 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      // Private profile fields are only readable through this secure lookup
+      const { data, error } = await supabase.rpc('get_my_profile');
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching profile:', error);
       } else {
-        setProfile(data);
+        setProfile(Array.isArray(data) ? data[0] ?? null : data);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);

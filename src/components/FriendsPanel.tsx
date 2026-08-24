@@ -106,8 +106,8 @@ export function FriendsPanel({ userId }: FriendsPanelProps) {
     }
 
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
+      .from('public_profiles')
+      .select('id, user_id, username, display_name, avatar_url, bio')
       .ilike('username', `%${searchQuery}%`)
       .neq('user_id', userId)
       .limit(10);

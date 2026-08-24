@@ -34,18 +34,15 @@ export function UserProfileMenu({ userId }: { userId: string }) {
   }, [userId]);
 
   const fetchProfile = async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    const { data, error } = await supabase.rpc('get_my_profile');
 
     if (error) {
       console.error('Error fetching profile:', error);
       return;
     }
 
-    setProfile(data as Profile);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) setProfile(row as Profile);
   };
 
   const fetchStats = async () => {
