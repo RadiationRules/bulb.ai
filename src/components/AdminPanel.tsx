@@ -62,7 +62,7 @@ export const AdminPanel = () => {
       // Fetch all users
       const { data: usersData, error: usersError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, user_id, username, display_name, bio, avatar_url, skills, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (usersError) throw usersError;
