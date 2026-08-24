@@ -32,9 +32,33 @@ serve(async (req) => {
       );
     }
 
-    const { projectId, projectName, files } = await req.json() as DeployRequest;
-    
+    const body = await req.json() as DeployRequest & { action?: string; deploymentId?: string };
+    const { projectId, projectName, files } = body;
+
+    // Status polling: return live build state for an existing deployment
+    if (body.action === 'status' && body.deploymentId) {
+      const statusRes = await fetch(`https://api.vercel.com/v13/deployments/${body.deploymentId}`, {
+        headers: { 'Authorization': `Bearer ${VERCEL_TOKEN}` },
+      });
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) {
+        return new Response(
+          JSON.stringify({ error: 'Status check failed', message: statusData.error?.message || 'Unknown error' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          readyState: statusData.readyState,
+          url: statusData.url ? `https://${statusData.url}` : null,
+          errorMessage: statusData.errorMessage ?? null,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log('🚀 Starting Vercel deployment for:', projectName);
+
 
     // Prepare deployment files — all static HTML5
     const deploymentFiles = Object.entries(files).map(([file, data]) => ({
