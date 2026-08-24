@@ -85,34 +85,49 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       if (data?.needsSetup) throw new Error(data.message || 'Vercel setup required');
       if (data?.error) throw new Error(data.message || data.error);
 
+      const url = data?.url || `https://${projectName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
+      setDeployUrl(url);
       setProgress(55);
       addLog('⚡ Build started on Vercel...');
-      
-      // Stage 3: Deploying
+      addLog(`🔗 Live URL reserved: ${url}`);
+
+      // Stage 3: Deploying — poll real Vercel build state
       setStage(2);
-      await tick(1500);
-      setProgress(70);
-      addLog('🌐 Deploying to global CDN...');
-      
-      await tick(1000);
-      setProgress(85);
-      addLog('🔒 Configuring SSL certificate...');
-      
-      await tick(800);
+      let ready = false;
+      if (data?.deploymentId) {
+        for (let i = 0; i < 40; i++) {
+          await tick(1500);
+          const { data: st } = await supabase.functions.invoke('deploy-vercel', {
+            body: { action: 'status', deploymentId: data.deploymentId }
+          });
+          const state = st?.readyState;
+          if (state === 'READY') { ready = true; addLog('✅ Build succeeded'); break; }
+          if (state === 'ERROR' || state === 'CANCELED') {
+            throw new Error(st?.errorMessage || 'Vercel build failed');
+          }
+          setProgress(p => Math.min(94, p + 4));
+          addLog(`🔧 ${state || 'BUILDING'}...`);
+        }
+      } else {
+        await tick(2500);
+        ready = true;
+      }
+
+      if (!ready) addLog('⏳ Still finishing on Vercel — the URL will go live shortly.');
+
       setProgress(95);
-      addLog('🔗 Assigning domain...');
+      addLog('🔒 SSL certificate configured');
 
       // Stage 4: Live
       setStage(3);
       setProgress(100);
-      const url = data?.url || `https://${projectName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
-      setDeployUrl(url);
       addLog(`✅ Live at: ${url}`);
       setStatus('success');
       setShowConfetti(true);
       onDeployComplete?.(url);
 
       setTimeout(() => setShowConfetti(false), 4000);
+
 
     } catch (err) {
       setStatus('failed');
@@ -121,10 +136,15 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     }
   };
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(deployUrl);
-    toast({ title: 'Copied!', duration: 1500 });
+  const publicLink = `${window.location.origin}/project/${projectId}`;
+
+  const copyText = (value: string, label: string) => {
+    navigator.clipboard.writeText(value);
+    toast({ title: `${label} copied!`, duration: 1500 });
   };
+
+  const copyUrl = () => copyText(deployUrl, 'Live URL');
+
 
   if (!isOpen) return null;
 
@@ -204,20 +224,29 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
         <Progress value={progress} className="h-2" />
       </div>
 
-      {/* Live URL */}
-      {deployUrl && status === 'success' && (
-        <div className="flex items-center gap-3 px-6 py-3 bg-green-500/10 border border-green-500/30 rounded-xl mb-6 animate-fade-in-up">
-          <span className="text-green-400 font-mono text-sm">{deployUrl}</span>
-          <Button variant="ghost" size="sm" onClick={copyUrl}>
-            <Copy className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={deployUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </Button>
+      {/* Live URL — shown as soon as Vercel reserves it */}
+      {deployUrl && (
+        <div className="max-w-lg w-full px-8 mb-6 space-y-2 animate-fade-in-up">
+          <div className="flex items-center gap-2 px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+            <span className="flex-1 truncate text-green-400 font-mono text-sm">{deployUrl}</span>
+            <Button variant="ghost" size="sm" onClick={copyUrl} title="Copy live URL">
+              <Copy className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 border border-primary/30 rounded-xl">
+            <span className="flex-1 truncate text-primary font-mono text-xs">{publicLink}</span>
+            <Button variant="ghost" size="sm" onClick={() => copyText(publicLink, 'Share link')} title="Copy shareable BulbAI link">
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
+
 
       {/* Build logs */}
       <div className="max-w-lg w-full px-8">

@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+
 
 const signInSchema = z.object({
   email: z.string().trim().email('Invalid email address').max(255, 'Email too long'),
@@ -42,7 +44,27 @@ export default function Auth() {
     }
   }, [user, navigate]);
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      sessionStorage.setItem('bulbai_post_auth_redirect', '/dashboard');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
+
     e.preventDefault();
     setLoading(true);
     setError('');

@@ -24,9 +24,31 @@ serve(async (req) => {
       );
     }
 
-    // Check user credits
+    // ---- Smart model routing ----
+    const FAST_MODEL = 'google/gemini-2.5-flash';
+    const HEAVY_MODEL = 'google/gemini-2.5-pro';
+    const FREE_MODEL = 'google/gemini-2.5-flash-lite';
+
+    const lastUserMessage: string = [...(messages ?? [])].reverse()
+      .find((m: any) => m.role === 'user')?.content ?? '';
+    const text = String(lastUserMessage).toLowerCase();
+
+    // Escalate for multi-file builds / complex work
+    const heavySignals = [
+      'multiple files', 'multi-file', 'full app', 'entire app', 'whole app', 'build me a',
+      'rewrite', 'refactor', 'architecture', 'dashboard', 'game', 'backend', 'database',
+      'delete all', 'every file', 'folder structure', 'from scratch',
+    ];
+    const fileMentions = (text.match(/\.(html|css|js|ts|tsx|json|md)\b/g) ?? []).length;
+    const needsHeavy =
+      fileMentions >= 2 ||
+      text.length > 600 ||
+      heavySignals.some((s) => text.includes(s)) ||
+      (images && images.length > 0);
+
     const authHeader = req.headers.get('Authorization');
-    let modelToUse = 'google/gemini-2.5-pro';
+    let modelToUse = needsHeavy ? HEAVY_MODEL : FAST_MODEL;
+    let tier: 'heavy' | 'fast' | 'free' = needsHeavy ? 'heavy' : 'fast';
     let isPremium = true;
 
     if (authHeader) {
@@ -42,11 +64,16 @@ serve(async (req) => {
           const { data: creditData } = await supabase.rpc('get_my_credit_summary');
 
           if (creditData) {
-            const totalAvailable = creditData.total_available ?? 0;
+            const totalAvailable = (creditData as any).total_available ?? 0;
             if (totalAvailable <= 0) {
-              // Fall back to free tier model
-              modelToUse = 'google/gemini-2.5-flash-lite';
+              // Empty: free tier model
+              modelToUse = FREE_MODEL;
+              tier = 'free';
               isPremium = false;
+            } else if (totalAvailable <= 10 && tier === 'heavy') {
+              // Low credits: don't burn them on the heavy model
+              modelToUse = FAST_MODEL;
+              tier = 'fast';
             }
           }
 
@@ -58,12 +85,11 @@ serve(async (req) => {
             .single();
 
           if (profile) {
-            // Log usage
             await supabase.from('ai_usage_events').insert({
               user_id: profile.id,
-              model_tier: isPremium ? 'premium' : 'free',
+              model_tier: tier === 'heavy' ? 'premium' : tier,
               request_kind: 'chat',
-              credits_used: isPremium ? 1 : 0,
+              credits_used: tier === 'heavy' ? 2 : tier === 'fast' ? 1 : 0,
             });
           }
         }
@@ -72,6 +98,7 @@ serve(async (req) => {
         // Continue with default model on error
       }
     }
+
 
     const formattedMessages = messages.map((msg: any, index: number) => {
       if (images && images.length > 0 && index === messages.length - 1 && msg.role === 'user') {
@@ -173,14 +200,14 @@ CREATE_FILE: script.js
 - Always include a summary at the end describing what was done
 - NEVER output incomplete code with comments like "// rest of the code" or "// etc"`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const callGateway = (model: string) => fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelToUse,
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           ...formattedMessages
@@ -188,6 +215,29 @@ CREATE_FILE: script.js
         stream: true,
       }),
     });
+
+    let response = await callGateway(modelToUse);
+
+    // Graceful fallback: if the chosen model is unavailable/limited, drop a tier.
+    if (!response.ok && (response.status === 402 || response.status === 429) && modelToUse !== FREE_MODEL) {
+      const fallback = modelToUse === HEAVY_MODEL ? FAST_MODEL : FREE_MODEL;
+      console.log(`Falling back from ${modelToUse} to ${fallback} (status ${response.status})`);
+      const retry = await callGateway(fallback);
+      if (retry.ok) {
+        modelToUse = fallback;
+        tier = fallback === FAST_MODEL ? 'fast' : 'free';
+        isPremium = fallback !== FREE_MODEL;
+        response = retry;
+      } else if (fallback !== FREE_MODEL) {
+        const last = await callGateway(FREE_MODEL);
+        if (last.ok) {
+          modelToUse = FREE_MODEL;
+          tier = 'free';
+          isPremium = false;
+          response = last;
+        }
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -202,7 +252,7 @@ CREATE_FILE: script.js
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits depleted.' }),
+          JSON.stringify({ error: 'AI credits depleted. Credits reset at midnight UTC — upgrade at /pricing for more.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -217,12 +267,15 @@ CREATE_FILE: script.js
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
+        'Access-Control-Expose-Headers': 'X-Model-Tier, X-Model',
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-Model-Tier': isPremium ? 'premium' : 'free',
+        'X-Model-Tier': tier,
+        'X-Model': modelToUse,
       },
     });
+
 
   } catch (error) {
     console.error('Chat function error:', error);
