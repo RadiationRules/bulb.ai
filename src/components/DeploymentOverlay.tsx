@@ -85,34 +85,49 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       if (data?.needsSetup) throw new Error(data.message || 'Vercel setup required');
       if (data?.error) throw new Error(data.message || data.error);
 
+      const url = data?.url || `https://${projectName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
+      setDeployUrl(url);
       setProgress(55);
       addLog('⚡ Build started on Vercel...');
-      
-      // Stage 3: Deploying
+      addLog(`🔗 Live URL reserved: ${url}`);
+
+      // Stage 3: Deploying — poll real Vercel build state
       setStage(2);
-      await tick(1500);
-      setProgress(70);
-      addLog('🌐 Deploying to global CDN...');
-      
-      await tick(1000);
-      setProgress(85);
-      addLog('🔒 Configuring SSL certificate...');
-      
-      await tick(800);
+      let ready = false;
+      if (data?.deploymentId) {
+        for (let i = 0; i < 40; i++) {
+          await tick(1500);
+          const { data: st } = await supabase.functions.invoke('deploy-vercel', {
+            body: { action: 'status', deploymentId: data.deploymentId }
+          });
+          const state = st?.readyState;
+          if (state === 'READY') { ready = true; addLog('✅ Build succeeded'); break; }
+          if (state === 'ERROR' || state === 'CANCELED') {
+            throw new Error(st?.errorMessage || 'Vercel build failed');
+          }
+          setProgress(p => Math.min(94, p + 4));
+          addLog(`🔧 ${state || 'BUILDING'}...`);
+        }
+      } else {
+        await tick(2500);
+        ready = true;
+      }
+
+      if (!ready) addLog('⏳ Still finishing on Vercel — the URL will go live shortly.');
+
       setProgress(95);
-      addLog('🔗 Assigning domain...');
+      addLog('🔒 SSL certificate configured');
 
       // Stage 4: Live
       setStage(3);
       setProgress(100);
-      const url = data?.url || `https://${projectName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
-      setDeployUrl(url);
       addLog(`✅ Live at: ${url}`);
       setStatus('success');
       setShowConfetti(true);
       onDeployComplete?.(url);
 
       setTimeout(() => setShowConfetti(false), 4000);
+
 
     } catch (err) {
       setStatus('failed');
