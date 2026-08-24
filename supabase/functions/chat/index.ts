@@ -200,14 +200,14 @@ CREATE_FILE: script.js
 - Always include a summary at the end describing what was done
 - NEVER output incomplete code with comments like "// rest of the code" or "// etc"`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const callGateway = (model: string) => fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: modelToUse,
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           ...formattedMessages
@@ -215,6 +215,29 @@ CREATE_FILE: script.js
         stream: true,
       }),
     });
+
+    let response = await callGateway(modelToUse);
+
+    // Graceful fallback: if the chosen model is unavailable/limited, drop a tier.
+    if (!response.ok && (response.status === 402 || response.status === 429) && modelToUse !== FREE_MODEL) {
+      const fallback = modelToUse === HEAVY_MODEL ? FAST_MODEL : FREE_MODEL;
+      console.log(`Falling back from ${modelToUse} to ${fallback} (status ${response.status})`);
+      const retry = await callGateway(fallback);
+      if (retry.ok) {
+        modelToUse = fallback;
+        tier = fallback === FAST_MODEL ? 'fast' : 'free';
+        isPremium = fallback !== FREE_MODEL;
+        response = retry;
+      } else if (fallback !== FREE_MODEL) {
+        const last = await callGateway(FREE_MODEL);
+        if (last.ok) {
+          modelToUse = FREE_MODEL;
+          tier = 'free';
+          isPremium = false;
+          response = last;
+        }
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -229,7 +252,7 @@ CREATE_FILE: script.js
       
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: 'AI credits depleted.' }),
+          JSON.stringify({ error: 'AI credits depleted. Credits reset at midnight UTC — upgrade at /pricing for more.' }),
           { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -244,12 +267,15 @@ CREATE_FILE: script.js
     return new Response(response.body, {
       headers: {
         ...corsHeaders,
+        'Access-Control-Expose-Headers': 'X-Model-Tier, X-Model',
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'X-Model-Tier': isPremium ? 'premium' : 'free',
+        'X-Model-Tier': tier,
+        'X-Model': modelToUse,
       },
     });
+
 
   } catch (error) {
     console.error('Chat function error:', error);
