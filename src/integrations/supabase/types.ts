@@ -1069,54 +1069,30 @@ export type Database = {
         Row: {
           avatar_url: string | null
           bio: string | null
-          company: string | null
           created_at: string | null
           display_name: string | null
-          github_url: string | null
-          github_username: string | null
           id: string | null
-          linkedin_url: string | null
-          location: string | null
-          portfolio_url: string | null
           skills: string[] | null
-          twitter_url: string | null
-          updated_at: string | null
           user_id: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
-          company?: string | null
           created_at?: string | null
           display_name?: string | null
-          github_url?: string | null
-          github_username?: string | null
           id?: string | null
-          linkedin_url?: string | null
-          location?: string | null
-          portfolio_url?: string | null
           skills?: string[] | null
-          twitter_url?: string | null
-          updated_at?: string | null
           user_id?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
-          company?: string | null
           created_at?: string | null
           display_name?: string | null
-          github_url?: string | null
-          github_username?: string | null
           id?: string | null
-          linkedin_url?: string | null
-          location?: string | null
-          portfolio_url?: string | null
           skills?: string[] | null
-          twitter_url?: string | null
-          updated_at?: string | null
           user_id?: string | null
           username?: string | null
         }
