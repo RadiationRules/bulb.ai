@@ -130,11 +130,16 @@ export const ProjectSettingsModal = ({
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
+      // Bucket is private — use a long-lived signed link instead of a public URL
+      const { data: signed, error: signedError } = await supabase.storage
         .from('project-assets')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
+      if (signedError || !signed?.signedUrl) throw signedError ?? new Error('Could not create image link');
+
+      const publicUrl = signed.signedUrl;
       setUrl(publicUrl);
+
 
       // Save preview image to project immediately
       if (type === 'preview') {
