@@ -136,10 +136,15 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     }
   };
 
-  const copyUrl = () => {
-    navigator.clipboard.writeText(deployUrl);
-    toast({ title: 'Copied!', duration: 1500 });
+  const publicLink = `${window.location.origin}/project/${projectId}`;
+
+  const copyText = (value: string, label: string) => {
+    navigator.clipboard.writeText(value);
+    toast({ title: `${label} copied!`, duration: 1500 });
   };
+
+  const copyUrl = () => copyText(deployUrl, 'Live URL');
+
 
   if (!isOpen) return null;
 
