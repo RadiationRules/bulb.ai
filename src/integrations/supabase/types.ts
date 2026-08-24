@@ -1106,6 +1106,34 @@ export type Database = {
         Returns: Json
       }
       get_my_credit_summary: { Args: never; Returns: Json }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          company: string | null
+          created_at: string
+          display_name: string | null
+          github_url: string | null
+          github_username: string | null
+          id: string
+          linkedin_url: string | null
+          location: string | null
+          portfolio_url: string | null
+          referral_code: string
+          skills: string[] | null
+          twitter_url: string | null
+          updated_at: string
+          user_id: string
+          username: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
