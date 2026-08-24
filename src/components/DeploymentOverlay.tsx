@@ -224,20 +224,29 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
         <Progress value={progress} className="h-2" />
       </div>
 
-      {/* Live URL */}
-      {deployUrl && status === 'success' && (
-        <div className="flex items-center gap-3 px-6 py-3 bg-green-500/10 border border-green-500/30 rounded-xl mb-6 animate-fade-in-up">
-          <span className="text-green-400 font-mono text-sm">{deployUrl}</span>
-          <Button variant="ghost" size="sm" onClick={copyUrl}>
-            <Copy className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <a href={deployUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          </Button>
+      {/* Live URL — shown as soon as Vercel reserves it */}
+      {deployUrl && (
+        <div className="max-w-lg w-full px-8 mb-6 space-y-2 animate-fade-in-up">
+          <div className="flex items-center gap-2 px-4 py-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+            <span className="flex-1 truncate text-green-400 font-mono text-sm">{deployUrl}</span>
+            <Button variant="ghost" size="sm" onClick={copyUrl} title="Copy live URL">
+              <Copy className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            </Button>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 border border-primary/30 rounded-xl">
+            <span className="flex-1 truncate text-primary font-mono text-xs">{publicLink}</span>
+            <Button variant="ghost" size="sm" onClick={() => copyText(publicLink, 'Share link')} title="Copy shareable BulbAI link">
+              <Copy className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       )}
+
 
       {/* Build logs */}
       <div className="max-w-lg w-full px-8">
