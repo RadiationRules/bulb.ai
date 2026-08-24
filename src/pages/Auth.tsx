@@ -42,7 +42,27 @@ export default function Auth() {
     }
   }, [user, navigate]);
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      sessionStorage.setItem('bulbai_post_auth_redirect', '/dashboard');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { access_type: 'offline', prompt: 'select_account' },
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err?.message || 'Failed to sign in with Google');
+      setLoading(false);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
+
     e.preventDefault();
     setLoading(true);
     setError('');
