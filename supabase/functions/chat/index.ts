@@ -24,9 +24,31 @@ serve(async (req) => {
       );
     }
 
-    // Check user credits
+    // ---- Smart model routing ----
+    const FAST_MODEL = 'google/gemini-2.5-flash';
+    const HEAVY_MODEL = 'google/gemini-2.5-pro';
+    const FREE_MODEL = 'google/gemini-2.5-flash-lite';
+
+    const lastUserMessage: string = [...(messages ?? [])].reverse()
+      .find((m: any) => m.role === 'user')?.content ?? '';
+    const text = String(lastUserMessage).toLowerCase();
+
+    // Escalate for multi-file builds / complex work
+    const heavySignals = [
+      'multiple files', 'multi-file', 'full app', 'entire app', 'whole app', 'build me a',
+      'rewrite', 'refactor', 'architecture', 'dashboard', 'game', 'backend', 'database',
+      'delete all', 'every file', 'folder structure', 'from scratch',
+    ];
+    const fileMentions = (text.match(/\.(html|css|js|ts|tsx|json|md)\b/g) ?? []).length;
+    const needsHeavy =
+      fileMentions >= 2 ||
+      text.length > 600 ||
+      heavySignals.some((s) => text.includes(s)) ||
+      (images && images.length > 0);
+
     const authHeader = req.headers.get('Authorization');
-    let modelToUse = 'google/gemini-2.5-pro';
+    let modelToUse = needsHeavy ? HEAVY_MODEL : FAST_MODEL;
+    let tier: 'heavy' | 'fast' | 'free' = needsHeavy ? 'heavy' : 'fast';
     let isPremium = true;
 
     if (authHeader) {
@@ -42,11 +64,16 @@ serve(async (req) => {
           const { data: creditData } = await supabase.rpc('get_my_credit_summary');
 
           if (creditData) {
-            const totalAvailable = creditData.total_available ?? 0;
+            const totalAvailable = (creditData as any).total_available ?? 0;
             if (totalAvailable <= 0) {
-              // Fall back to free tier model
-              modelToUse = 'google/gemini-2.5-flash-lite';
+              // Empty: free tier model
+              modelToUse = FREE_MODEL;
+              tier = 'free';
               isPremium = false;
+            } else if (totalAvailable <= 10 && tier === 'heavy') {
+              // Low credits: don't burn them on the heavy model
+              modelToUse = FAST_MODEL;
+              tier = 'fast';
             }
           }
 
@@ -58,12 +85,11 @@ serve(async (req) => {
             .single();
 
           if (profile) {
-            // Log usage
             await supabase.from('ai_usage_events').insert({
               user_id: profile.id,
-              model_tier: isPremium ? 'premium' : 'free',
+              model_tier: tier === 'heavy' ? 'premium' : tier,
               request_kind: 'chat',
-              credits_used: isPremium ? 1 : 0,
+              credits_used: tier === 'heavy' ? 2 : tier === 'fast' ? 1 : 0,
             });
           }
         }
@@ -72,6 +98,7 @@ serve(async (req) => {
         // Continue with default model on error
       }
     }
+
 
     const formattedMessages = messages.map((msg: any, index: number) => {
       if (images && images.length > 0 && index === messages.length - 1 && msg.role === 'user') {
