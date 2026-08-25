@@ -23,11 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setSession(user ? session : null);
+      setUser(user);
+      if (user) {
+        fetchProfile(user.id);
       } else {
         setLoading(false);
       }
@@ -71,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, metadata = {}) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     
     const { error } = await supabase.auth.signUp({
       email,

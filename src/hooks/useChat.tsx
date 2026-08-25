@@ -20,6 +20,64 @@ export const useChat = (projectId?: string) => {
   const [stageDetail, setStageDetail] = useState<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadedRef = useRef(false);
+  const visibleContentRef = useRef('');
+  const targetContentRef = useRef('');
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamFinishedRef = useRef(false);
+
+  const stopTypingTimer = useCallback(() => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+  }, []);
+
+  const updateAssistantMessage = useCallback((content: string) => {
+    setMessages(prev => {
+      const next = [...prev];
+      if (next[next.length - 1]?.role === 'assistant') {
+        next[next.length - 1] = { role: 'assistant', content };
+      }
+      return next;
+    });
+  }, []);
+
+  const finishStream = useCallback(() => {
+    setAiStage('done');
+    setStageDetail('Complete');
+    setIsLoading(false);
+    setCurrentFile(null);
+    abortControllerRef.current = null;
+    window.dispatchEvent(new CustomEvent('bulbai:credits-changed'));
+    setTimeout(() => { setAiStage('idle'); setStageDetail(''); }, 2000);
+  }, []);
+
+  const typeNextFrame = useCallback(() => {
+    const visible = visibleContentRef.current;
+    const target = targetContentRef.current;
+
+    if (visible.length < target.length) {
+      const backlog = target.length - visible.length;
+      const step = Math.max(1, Math.min(10, Math.ceil(backlog / 45)));
+      const next = target.slice(0, visible.length + step);
+      visibleContentRef.current = next;
+      updateAssistantMessage(next);
+      typingTimerRef.current = setTimeout(typeNextFrame, 16);
+      return;
+    }
+
+    typingTimerRef.current = null;
+    if (streamFinishedRef.current) finishStream();
+  }, [finishStream, updateAssistantMessage]);
+
+  const queueAssistantContent = useCallback((content: string) => {
+    targetContentRef.current = content;
+    if (!typingTimerRef.current) {
+      typingTimerRef.current = setTimeout(typeNextFrame, 16);
+    }
+  }, [typeNextFrame]);
+
+  useEffect(() => () => stopTypingTimer(), [stopTypingTimer]);
 
   // Load persisted messages on mount
   useEffect(() => {
@@ -79,6 +137,10 @@ export const useChat = (projectId?: string) => {
       setCurrentFile(null);
       setAiStage('thinking');
       setStageDetail('Planning approach...');
+      stopTypingTimer();
+      visibleContentRef.current = '';
+      targetContentRef.current = '';
+      streamFinishedRef.current = false;
 
       // Persist user message
       persistMessage('user', displayMessage || validatedMessage);
@@ -127,14 +189,6 @@ export const useChat = (projectId?: string) => {
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
-      const updateAssistant = (content: string) => {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = { role: 'assistant', content };
-          return newMessages;
-        });
-      };
-
       let hasStartedCoding = false;
       const detectFile = (text: string) => {
         const createMatch = text.match(/CREATE_FILE:\s*([^\n]+)/);
@@ -180,7 +234,7 @@ export const useChat = (projectId?: string) => {
             if (delta) {
               assistantContent += delta;
               detectFile(assistantContent);
-              updateAssistant(assistantContent);
+              queueAssistantContent(assistantContent);
             }
           } catch {
             // Skip malformed JSON
@@ -197,7 +251,7 @@ export const useChat = (projectId?: string) => {
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
               assistantContent += delta;
-              updateAssistant(assistantContent);
+              queueAssistantContent(assistantContent);
             }
           } catch {}
         }
@@ -208,14 +262,12 @@ export const useChat = (projectId?: string) => {
         persistMessage('assistant', assistantContent);
       }
 
-      setAiStage('done');
-      setStageDetail('Complete');
-      setTimeout(() => { setAiStage('idle'); setStageDetail(''); }, 2000);
-      setIsLoading(false);
-      setCurrentFile(null);
-      abortControllerRef.current = null;
+      streamFinishedRef.current = true;
+      queueAssistantContent(assistantContent);
+      if (!assistantContent) finishStream();
     } catch (error: any) {
       console.error('Chat error:', error);
+      stopTypingTimer();
       setIsLoading(false);
       setCurrentFile(null);
       setAiStage('idle');
@@ -248,9 +300,10 @@ export const useChat = (projectId?: string) => {
   
   const stopGeneration = useCallback(() => {
     abortControllerRef.current?.abort();
+    stopTypingTimer();
     setIsLoading(false);
     setCurrentFile(null);
-  }, []);
+  }, [stopTypingTimer]);
 
   return {
     messages,

@@ -114,7 +114,6 @@ const CopilotPanel = ({
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [credits, setCredits] = useState<{ daily_remaining: number; total_available: number; resets_at: string } | null>(null);
 
-  // Fetch credits
   useEffect(() => {
     const fetchCredits = async () => {
       try {
@@ -126,9 +125,25 @@ const CopilotPanel = ({
       } catch {}
     };
     fetchCredits();
-    const interval = setInterval(fetchCredits, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    window.addEventListener('bulbai:credits-changed', fetchCredits);
+
+    const channel = supabase
+      .channel(`workspace-credits-${projectId || 'new'}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ai_usage_events' }, fetchCredits)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_transactions' }, fetchCredits)
+      .subscribe();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchCredits();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('bulbai:credits-changed', fetchCredits);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      supabase.removeChannel(channel);
+    };
+  }, [projectId]);
 
   // Refresh credits after each message
   useEffect(() => {
@@ -851,12 +866,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const filesToDelete = files.filter((file) => pathSet.has(file.file_path));
 
     if (project && filesToDelete.length > 0) {
-      const persistedIds = filesToDelete
-        .map((file) => file.id)
-        .filter((id) => !id.startsWith('temp-') && !id.startsWith('restored-'));
+      const { error } = await supabase
+        .from('project_files')
+        .delete()
+        .eq('project_id', project.id)
+        .in('file_path', filesToDelete.map((file) => file.file_path));
 
-      if (persistedIds.length > 0) {
-        await supabase.from('project_files').delete().in('id', persistedIds);
+      if (error) {
+        toast({ title: 'Delete failed', description: error.message, variant: 'destructive' });
+        return;
       }
     }
 
