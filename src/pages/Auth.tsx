@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
@@ -37,6 +37,7 @@ export default function Auth() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -47,6 +48,7 @@ export default function Auth() {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError('');
+    setNotice('');
     try {
       sessionStorage.setItem('bulbai_post_auth_redirect', '/dashboard');
       const { error } = await supabase.auth.signInWithOAuth({
@@ -75,6 +77,8 @@ export default function Auth() {
       
       if (error) {
         setError(error.message);
+      } else {
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -91,6 +95,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setNotice('');
 
     try {
       const validated = signUpSchema.parse({
@@ -109,7 +114,7 @@ export default function Auth() {
         setError(error.message);
       } else {
         setError('');
-        alert('Check your email for verification link!');
+        setNotice('Account created. Check your inbox and click the confirmation link, then sign in.');
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -179,6 +184,12 @@ export default function Auth() {
                 <Alert variant="destructive" className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {notice && (
+                <Alert className="mt-4 border-primary/40 bg-primary/10">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <AlertDescription>{notice}</AlertDescription>
                 </Alert>
               )}
 
