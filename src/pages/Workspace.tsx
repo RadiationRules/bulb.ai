@@ -534,6 +534,10 @@ export default function Workspace() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [activeChangeId, setActiveChangeId] = useState<string | null>(null);
+
+
 
   const { collaborators, setEditor } = useCollaboration(
     projectId || '', profile?.id || '', activeFile
