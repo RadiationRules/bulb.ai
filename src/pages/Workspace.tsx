@@ -856,10 +856,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     setFiles(prev => prev.map(f => f.file_path === change.path ? { ...f, file_content: change.newContent } : f));
-    if (activeFile === change.path || true) {
-      setActiveFile(change.path);
-      setFileContent(change.newContent);
-    }
+    setActiveFile(change.path);
+    setFileContent(change.newContent);
     const target = files.find(f => f.file_path === change.path);
     if (project && target && !target.id.startsWith('temp-')) {
       try {
@@ -1359,8 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   activeFile={activeFile}
                   fileContent={fileContent}
                   files={files}
-                  onUpdateFile={handleCopilotUpdateFile}
-                  onCreateFile={handleCopilotCreateFile}
+                  onProposeChange={proposeChange}
                   onDeleteFile={(targets: string[]) => deletePaths(targets)}
                   codingFile={codingFile}
                   onCodingFile={setCodingFile}
