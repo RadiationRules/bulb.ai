@@ -1301,30 +1301,61 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               
               <div className="border-b bg-muted/20 px-3 py-1.5 flex-shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {activeFile && (
                     <div className="flex items-center gap-2 px-2 py-0.5 bg-background rounded-sm border">
                       <File className="w-3 h-3" /><span className="text-xs md:text-sm">{activeFile}</span>
+                    </div>
+                  )}
+                  {pendingChanges.length > 0 && (
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {pendingChanges.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setActiveChangeId(c.id); setActiveFile(c.path); setFileContent(c.type === 'create' ? '' : c.oldContent); }}
+                          className={cn(
+                            'px-2 py-0.5 rounded-sm border text-[10px] font-mono whitespace-nowrap transition-colors',
+                            c.id === currentChange?.id
+                              ? 'border-amber-500/60 bg-amber-500/10 text-amber-300'
+                              : 'border-border/60 text-muted-foreground hover:bg-muted/40'
+                          )}
+                        >
+                          {c.path}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
               
               <div className="flex-1 overflow-hidden min-h-0">
-                <Editor
-                  height="100%"
-                  language={getLanguageFromFile(activeFile || '')}
-                  value={fileContent}
-                  theme="vs-dark"
-                  onChange={(value) => {
-                    const v = value || '';
-                    setFileContent(v);
-                    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
-                  }}
-                  onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
-                  options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
-                />
+                {currentChange ? (
+                  <AiDiffReview
+                    change={currentChange}
+                    language={getLanguageFromFile(currentChange.path)}
+                    totalPending={pendingChanges.length}
+                    onAccept={acceptChange}
+                    onReject={rejectChange}
+                    onAcceptAll={acceptAllChanges}
+                    onRejectAll={rejectAllChanges}
+                  />
+                ) : (
+                  <Editor
+                    height="100%"
+                    language={getLanguageFromFile(activeFile || '')}
+                    value={fileContent}
+                    theme="vs-dark"
+                    onChange={(value) => {
+                      const v = value || '';
+                      setFileContent(v);
+                      setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
+                    }}
+                    onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
+                    options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
+                  />
+                )}
               </div>
+
             </div>
           </ResizablePanel>
           
