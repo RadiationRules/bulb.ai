@@ -841,6 +841,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // ---- AI change review (accept / reject with green + red diff) ----
+  const proposeChange = (change: { path: string; oldContent: string; newContent: string; type: 'create' | 'update' | 'delete'; fileType?: string }) => {
+    const id = `${change.path}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setPendingChanges(prev => [...prev.filter(c => c.path !== change.path), { id, ...change }]);
+    setActiveChangeId(id);
+    setActiveFile(change.path);
+    if (change.type !== 'create') setFileContent(change.oldContent);
+  };
+
+  const applyChange = async (change: PendingChange) => {
+    if (change.type === 'create' && !files.some(f => f.file_path === change.path)) {
+      await handleCopilotCreateFile(change.path, change.newContent, change.fileType || change.path.split('.').pop() || 'txt');
+      return;
+    }
+    setFiles(prev => prev.map(f => f.file_path === change.path ? { ...f, file_content: change.newContent } : f));
+    if (activeFile === change.path || true) {
+      setActiveFile(change.path);
+      setFileContent(change.newContent);
+    }
+    const target = files.find(f => f.file_path === change.path);
+    if (project && target && !target.id.startsWith('temp-')) {
+      try {
+        await supabase.from('project_files').update({ file_content: change.newContent }).eq('id', target.id);
+      } catch {}
+    }
+  };
+
+  const dropChange = (id: string) => {
+    setPendingChanges(prev => {
+      const next = prev.filter(c => c.id !== id);
+      setActiveChangeId(next.length ? next[0].id : null);
+      if (next.length) {
+        setActiveFile(next[0].path);
+        setFileContent(next[0].type === 'create' ? '' : next[0].oldContent);
+      }
+      return next;
+    });
+  };
+
+  const acceptChange = async (id: string) => {
+    const change = pendingChanges.find(c => c.id === id);
+    if (!change) return;
+    await applyChange(change);
+    dropChange(id);
+    toast({ title: '✓ Accepted', description: change.path, duration: 1500 });
+  };
+
+  const rejectChange = (id: string) => {
+    const change = pendingChanges.find(c => c.id === id);
+    dropChange(id);
+    if (change) toast({ title: 'Rejected', description: change.path, duration: 1500 });
+  };
+
+  const acceptAllChanges = async () => {
+    const all = [...pendingChanges];
+    for (const change of all) await applyChange(change);
+    setPendingChanges([]);
+    setActiveChangeId(null);
+    toast({ title: `✓ Accepted ${all.length} change${all.length !== 1 ? 's' : ''}`, duration: 1500 });
+  };
+
+  const rejectAllChanges = () => {
+    const count = pendingChanges.length;
+    setPendingChanges([]);
+    setActiveChangeId(null);
+    toast({ title: `Rejected ${count} change${count !== 1 ? 's' : ''}`, duration: 1500 });
+  };
+
+  const currentChange = pendingChanges.find(c => c.id === activeChangeId) || pendingChanges[0] || null;
+
+
   const resolveDeletionTargets = (targets: string[]) => {
     const deleteAll = targets.some((target) => {
       const normalized = target.trim().toLowerCase();
