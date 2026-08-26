@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Mail, Lock, User } from "lucide-react";
+import { getAuthCallbackUrl } from '@/lib/siteUrl';
 
 interface AuthModalProps {
   open: boolean;
@@ -26,7 +27,7 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl(),
           queryParams: { access_type: 'offline', prompt: 'select_account' },
         }
       });
@@ -71,7 +72,7 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: getAuthCallbackUrl()
         }
       });
       if (error) throw error;

@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { BulbIcon } from '@/components/BulbIcon';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
+import { getAuthCallbackUrl } from '@/lib/siteUrl';
 
 
 const signInSchema = z.object({
@@ -54,7 +55,7 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl(),
           queryParams: { access_type: 'offline', prompt: 'select_account' },
         },
       });

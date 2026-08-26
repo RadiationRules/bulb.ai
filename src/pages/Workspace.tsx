@@ -58,6 +58,7 @@ import {
 } from '@/components/ui/dialog';
 import { ProjectPreview } from '@/components/ProjectPreview';
 import { ShareDialog } from '@/components/ShareDialog';
+import { AiDiffReview, PendingChange } from '@/components/AiDiffReview';
 
 interface ProjectFile {
   id: string;
@@ -91,13 +92,12 @@ const AI_SUGGESTIONS = [
 
 // Copilot Panel
 const CopilotPanel = ({ 
-  activeFile, fileContent, files, onUpdateFile, onCreateFile, onDeleteFile, codingFile, onCodingFile, projectId, onSelectFile
+  activeFile, fileContent, files, onProposeChange, onDeleteFile, codingFile, onCodingFile, projectId, onSelectFile
 }: { 
   activeFile: string | null;
   fileContent: string;
   files: ProjectFile[];
-  onUpdateFile: (content: string) => void;
-  onCreateFile: (path: string, content: string, type: string) => void;
+  onProposeChange: (change: { path: string; oldContent: string; newContent: string; type: 'create' | 'update' | 'delete'; fileType?: string }) => void;
   onDeleteFile: (paths: string[]) => void;
   codingFile: string | null;
   onCodingFile: (file: string | null) => void;
@@ -213,7 +213,7 @@ const CopilotPanel = ({
     const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
-      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\n4. Delete multiple: list DELETE_FILE: for each, or DELETE_FILE: ALL_FILES to clear everything\nBE BRIEF. Code AUTO-APPLIED.`;
+      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\n4. Delete multiple: list DELETE_FILE: for each, or DELETE_FILE: ALL_FILES to clear everything\nBE BRIEF. Code edits are shown to the user as a green/red diff they accept or reject.`;
     }
     
     setInput('');
@@ -240,16 +240,21 @@ const CopilotPanel = ({
       }
     }
     
-    // Handle multiple CREATE_FILE blocks
+    // Handle multiple CREATE_FILE blocks → propose as reviewable diffs
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
       createMatches.forEach(match => {
         const filename = match[1];
         const content = match[2].trim();
+        const existing = files.find(f => f.file_path === filename);
         onCodingFile(filename);
-        const ext = filename.split('.').pop() || 'txt';
-        onCreateFile(filename, content, ext);
-        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
+        onProposeChange({
+          path: filename,
+          oldContent: existing?.file_content || '',
+          newContent: content,
+          type: existing ? 'update' : 'create',
+          fileType: filename.split('.').pop() || 'txt',
+        });
       });
       onCodingFile(null);
       return;
@@ -260,25 +265,29 @@ const CopilotPanel = ({
       const match = response.match(/CREATE_FILE:\s*(\S+)/);
       if (match) {
         const filename = match[1];
-        onCodingFile(filename);
-        const ext = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '';
-        onCreateFile(filename, content, ext);
-        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
+        const existing = files.find(f => f.file_path === filename);
+        onCodingFile(filename);
+        onProposeChange({
+          path: filename,
+          oldContent: existing?.file_content || '',
+          newContent: content,
+          type: existing ? 'update' : 'create',
+          fileType: filename.split('.').pop() || 'txt',
+        });
         onCodingFile(null);
         return;
       }
     }
     
-    // Apply code to active file
+    // Propose code edit to the active file
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
-      onCodingFile(activeFile);
-      onUpdateFile(newContent);
-      toast({ title: '✓ Applied', description: activeFile, duration: 1500 });
-      onCodingFile(null);
+      if (newContent !== fileContent) {
+        onProposeChange({ path: activeFile, oldContent: fileContent, newContent, type: 'update' });
+      }
     }
   };
 
@@ -525,6 +534,10 @@ export default function Workspace() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
+  const [activeChangeId, setActiveChangeId] = useState<string | null>(null);
+
+
 
   const { collaborators, setEditor } = useCollaboration(
     projectId || '', profile?.id || '', activeFile
@@ -827,6 +840,75 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch {}
     }
   };
+
+  // ---- AI change review (accept / reject with green + red diff) ----
+  const proposeChange = (change: { path: string; oldContent: string; newContent: string; type: 'create' | 'update' | 'delete'; fileType?: string }) => {
+    const id = `${change.path}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setPendingChanges(prev => [...prev.filter(c => c.path !== change.path), { id, ...change }]);
+    setActiveChangeId(id);
+    setActiveFile(change.path);
+    if (change.type !== 'create') setFileContent(change.oldContent);
+  };
+
+  const applyChange = async (change: PendingChange) => {
+    if (change.type === 'create' && !files.some(f => f.file_path === change.path)) {
+      await handleCopilotCreateFile(change.path, change.newContent, change.fileType || change.path.split('.').pop() || 'txt');
+      return;
+    }
+    setFiles(prev => prev.map(f => f.file_path === change.path ? { ...f, file_content: change.newContent } : f));
+    setActiveFile(change.path);
+    setFileContent(change.newContent);
+    const target = files.find(f => f.file_path === change.path);
+    if (project && target && !target.id.startsWith('temp-')) {
+      try {
+        await supabase.from('project_files').update({ file_content: change.newContent }).eq('id', target.id);
+      } catch {}
+    }
+  };
+
+  const dropChange = (id: string) => {
+    setPendingChanges(prev => {
+      const next = prev.filter(c => c.id !== id);
+      setActiveChangeId(next.length ? next[0].id : null);
+      if (next.length) {
+        setActiveFile(next[0].path);
+        setFileContent(next[0].type === 'create' ? '' : next[0].oldContent);
+      }
+      return next;
+    });
+  };
+
+  const acceptChange = async (id: string) => {
+    const change = pendingChanges.find(c => c.id === id);
+    if (!change) return;
+    await applyChange(change);
+    dropChange(id);
+    toast({ title: '✓ Accepted', description: change.path, duration: 1500 });
+  };
+
+  const rejectChange = (id: string) => {
+    const change = pendingChanges.find(c => c.id === id);
+    dropChange(id);
+    if (change) toast({ title: 'Rejected', description: change.path, duration: 1500 });
+  };
+
+  const acceptAllChanges = async () => {
+    const all = [...pendingChanges];
+    for (const change of all) await applyChange(change);
+    setPendingChanges([]);
+    setActiveChangeId(null);
+    toast({ title: `✓ Accepted ${all.length} change${all.length !== 1 ? 's' : ''}`, duration: 1500 });
+  };
+
+  const rejectAllChanges = () => {
+    const count = pendingChanges.length;
+    setPendingChanges([]);
+    setActiveChangeId(null);
+    toast({ title: `Rejected ${count} change${count !== 1 ? 's' : ''}`, duration: 1500 });
+  };
+
+  const currentChange = pendingChanges.find(c => c.id === activeChangeId) || pendingChanges[0] || null;
+
 
   const resolveDeletionTargets = (targets: string[]) => {
     const deleteAll = targets.some((target) => {
@@ -1219,30 +1301,61 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
               
               <div className="border-b bg-muted/20 px-3 py-1.5 flex-shrink-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {activeFile && (
                     <div className="flex items-center gap-2 px-2 py-0.5 bg-background rounded-sm border">
                       <File className="w-3 h-3" /><span className="text-xs md:text-sm">{activeFile}</span>
+                    </div>
+                  )}
+                  {pendingChanges.length > 0 && (
+                    <div className="flex items-center gap-1 overflow-x-auto">
+                      {pendingChanges.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => { setActiveChangeId(c.id); setActiveFile(c.path); setFileContent(c.type === 'create' ? '' : c.oldContent); }}
+                          className={cn(
+                            'px-2 py-0.5 rounded-sm border text-[10px] font-mono whitespace-nowrap transition-colors',
+                            c.id === currentChange?.id
+                              ? 'border-amber-500/60 bg-amber-500/10 text-amber-300'
+                              : 'border-border/60 text-muted-foreground hover:bg-muted/40'
+                          )}
+                        >
+                          {c.path}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
               
               <div className="flex-1 overflow-hidden min-h-0">
-                <Editor
-                  height="100%"
-                  language={getLanguageFromFile(activeFile || '')}
-                  value={fileContent}
-                  theme="vs-dark"
-                  onChange={(value) => {
-                    const v = value || '';
-                    setFileContent(v);
-                    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
-                  }}
-                  onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
-                  options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
-                />
+                {currentChange ? (
+                  <AiDiffReview
+                    change={currentChange}
+                    language={getLanguageFromFile(currentChange.path)}
+                    totalPending={pendingChanges.length}
+                    onAccept={acceptChange}
+                    onReject={rejectChange}
+                    onAcceptAll={acceptAllChanges}
+                    onRejectAll={rejectAllChanges}
+                  />
+                ) : (
+                  <Editor
+                    height="100%"
+                    language={getLanguageFromFile(activeFile || '')}
+                    value={fileContent}
+                    theme="vs-dark"
+                    onChange={(value) => {
+                      const v = value || '';
+                      setFileContent(v);
+                      setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: v } : f));
+                    }}
+                    onMount={(editor) => { editorRef.current = editor; setEditor(editor); }}
+                    options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'on', scrollBeyondLastLine: false, automaticLayout: true, tabSize: 2, wordWrap: 'on' }}
+                  />
+                )}
               </div>
+
             </div>
           </ResizablePanel>
           
@@ -1275,8 +1388,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   activeFile={activeFile}
                   fileContent={fileContent}
                   files={files}
-                  onUpdateFile={handleCopilotUpdateFile}
-                  onCreateFile={handleCopilotCreateFile}
+                  onProposeChange={proposeChange}
                   onDeleteFile={(targets: string[]) => deletePaths(targets)}
                   codingFile={codingFile}
                   onCodingFile={setCodingFile}
