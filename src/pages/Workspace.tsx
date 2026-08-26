@@ -58,6 +58,7 @@ import {
 } from '@/components/ui/dialog';
 import { ProjectPreview } from '@/components/ProjectPreview';
 import { ShareDialog } from '@/components/ShareDialog';
+import { AiDiffReview, PendingChange } from '@/components/AiDiffReview';
 
 interface ProjectFile {
   id: string;
@@ -212,7 +213,7 @@ const CopilotPanel = ({
     const userMessage = input;
     let contextMessage = input;
     if (activeFile) {
-      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\n4. Delete multiple: list DELETE_FILE: for each, or DELETE_FILE: ALL_FILES to clear everything\nBE BRIEF. Code AUTO-APPLIED.`;
+      contextMessage = `Context: Editing "${activeFile}"\nFiles: ${files.map(f => f.file_path).join(', ')}\nCurrent:\n\`\`\`\n${fileContent.slice(0, 1000)}${fileContent.length > 1000 ? '...' : ''}\n\`\`\`\nRequest: ${input}\n\nRESPOND FORMAT:\n1. Code edit: "[1 sentence]\\n\`\`\`language\\n[code]\`\`\`"\n2. New file: "CREATE_FILE: filename.ext\\n\`\`\`language\\n[code]\`\`\`"\n3. Delete file/folder: "DELETE_FILE: path" (supports folders and ALL_FILES)\n4. Delete multiple: list DELETE_FILE: for each, or DELETE_FILE: ALL_FILES to clear everything\nBE BRIEF. Code edits are shown to the user as a green/red diff they accept or reject.`;
     }
     
     setInput('');
