@@ -91,13 +91,12 @@ const AI_SUGGESTIONS = [
 
 // Copilot Panel
 const CopilotPanel = ({ 
-  activeFile, fileContent, files, onUpdateFile, onCreateFile, onDeleteFile, codingFile, onCodingFile, projectId, onSelectFile
+  activeFile, fileContent, files, onProposeChange, onDeleteFile, codingFile, onCodingFile, projectId, onSelectFile
 }: { 
   activeFile: string | null;
   fileContent: string;
   files: ProjectFile[];
-  onUpdateFile: (content: string) => void;
-  onCreateFile: (path: string, content: string, type: string) => void;
+  onProposeChange: (change: { path: string; oldContent: string; newContent: string; type: 'create' | 'update' | 'delete'; fileType?: string }) => void;
   onDeleteFile: (paths: string[]) => void;
   codingFile: string | null;
   onCodingFile: (file: string | null) => void;
