@@ -239,16 +239,21 @@ const CopilotPanel = ({
       }
     }
     
-    // Handle multiple CREATE_FILE blocks
+    // Handle multiple CREATE_FILE blocks → propose as reviewable diffs
     const createMatches = Array.from(response.matchAll(/CREATE_FILE:\s*(\S+)\s*\n```[\w]*\n([\s\S]*?)```/g));
     if (createMatches.length > 0) {
       createMatches.forEach(match => {
         const filename = match[1];
         const content = match[2].trim();
+        const existing = files.find(f => f.file_path === filename);
         onCodingFile(filename);
-        const ext = filename.split('.').pop() || 'txt';
-        onCreateFile(filename, content, ext);
-        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
+        onProposeChange({
+          path: filename,
+          oldContent: existing?.file_content || '',
+          newContent: content,
+          type: existing ? 'update' : 'create',
+          fileType: filename.split('.').pop() || 'txt',
+        });
       });
       onCodingFile(null);
       return;
@@ -259,25 +264,29 @@ const CopilotPanel = ({
       const match = response.match(/CREATE_FILE:\s*(\S+)/);
       if (match) {
         const filename = match[1];
-        onCodingFile(filename);
-        const ext = filename.split('.').pop() || 'txt';
         const contentMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
         const content = contentMatch ? contentMatch[1].trim() : '';
-        onCreateFile(filename, content, ext);
-        toast({ title: '✓ Applied', description: `Created ${filename}`, duration: 1500 });
+        const existing = files.find(f => f.file_path === filename);
+        onCodingFile(filename);
+        onProposeChange({
+          path: filename,
+          oldContent: existing?.file_content || '',
+          newContent: content,
+          type: existing ? 'update' : 'create',
+          fileType: filename.split('.').pop() || 'txt',
+        });
         onCodingFile(null);
         return;
       }
     }
     
-    // Apply code to active file
+    // Propose code edit to the active file
     const codeMatch = response.match(/```[\w]*\n([\s\S]*?)```/);
     if (codeMatch && activeFile && !response.includes('CREATE_FILE:')) {
       const newContent = codeMatch[1].trim();
-      onCodingFile(activeFile);
-      onUpdateFile(newContent);
-      toast({ title: '✓ Applied', description: activeFile, duration: 1500 });
-      onCodingFile(null);
+      if (newContent !== fileContent) {
+        onProposeChange({ path: activeFile, oldContent: fileContent, newContent, type: 'update' });
+      }
     }
   };
 
