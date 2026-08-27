@@ -56,7 +56,6 @@ import { BulbIcon } from '@/components/BulbIcon';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
-import { ProjectPreview } from '@/components/ProjectPreview';
 import { ShareDialog } from '@/components/ShareDialog';
 import { AiDiffReview, PendingChange } from '@/components/AiDiffReview';
 
@@ -109,6 +108,7 @@ const CopilotPanel = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const processedMessagesRef = useRef<Set<number>>(new Set());
+  const wasLoadingRef = useRef(false);
   const [tokenSpeed, setTokenSpeed] = useState(0);
   const tokenCountRef = useRef(0);
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -196,14 +196,17 @@ const CopilotPanel = ({
   }, [isLoading, messages]);
 
   useEffect(() => {
-    messages.forEach((message, index) => {
-      if (message.role === 'assistant' && !processedMessagesRef.current.has(index)) {
-        if (!isLoading || index < messages.length - 1) {
-          processedMessagesRef.current.add(index);
-          parseAndApplyAIResponse(message.content);
-        }
+    // Only turn a response from this live generation into a proposal. Persisted
+    // chat history is display-only and must never replay already accepted edits.
+    if (wasLoadingRef.current && !isLoading) {
+      const index = messages.length - 1;
+      const message = messages[index];
+      if (message?.role === 'assistant' && !processedMessagesRef.current.has(index)) {
+        processedMessagesRef.current.add(index);
+        parseAndApplyAIResponse(message.content);
       }
-    });
+    }
+    wasLoadingRef.current = isLoading;
   }, [messages, isLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -518,8 +521,6 @@ export default function Workspace() {
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [codingFile, setCodingFile] = useState<string | null>(null);
   const [showAICodingScreen, setShowAICodingScreen] = useState(false);
-  const [history, setHistory] = useState<{content: string, file: string}[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -527,6 +528,9 @@ export default function Workspace() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const filesRef = useRef<ProjectFile[]>([]);
+  const activeFileRef = useRef<string | null>(null);
+  const fileContentRef = useRef('');
   const editorRef = useRef<any>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -536,6 +540,17 @@ export default function Workspace() {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [pendingChanges, setPendingChanges] = useState<PendingChange[]>([]);
   const [activeChangeId, setActiveChangeId] = useState<string | null>(null);
+
+  useEffect(() => { filesRef.current = files; }, [files]);
+  useEffect(() => { activeFileRef.current = activeFile; }, [activeFile]);
+  useEffect(() => { fileContentRef.current = fileContent; }, [fileContent]);
+
+  const workspaceMemoryKey = projectId && projectId !== 'new' ? `bulbai:workspace:${projectId}` : null;
+
+  useEffect(() => {
+    if (!workspaceMemoryKey || pageLoading) return;
+    localStorage.setItem(workspaceMemoryKey, JSON.stringify({ activeFile, rightPanelTab }));
+  }, [workspaceMemoryKey, activeFile, rightPanelTab, pageLoading]);
 
 
 
@@ -588,6 +603,27 @@ export default function Workspace() {
 
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [fileContent, activeFile, project, isNewProject]);
+
+  // Flush the current editor buffer before the browser tab is hidden or the
+  // workspace unmounts, so quick navigation cannot discard the latest edit.
+  useEffect(() => {
+    const flushCurrentFile = () => {
+      if (!project || isNewProject) return;
+      const path = activeFileRef.current;
+      const target = filesRef.current.find((file) => file.file_path === path);
+      if (target && target.file_content !== fileContentRef.current) {
+        void supabase.from('project_files').update({ file_content: fileContentRef.current }).eq('id', target.id);
+      }
+    };
+    const handleVisibility = () => { if (document.visibilityState === 'hidden') flushCurrentFile(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', flushCurrentFile);
+    return () => {
+      flushCurrentFile();
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', flushCurrentFile);
+    };
+  }, [project, isNewProject]);
 
   useEffect(() => {
     if (loading) { setPageLoading(true); return; }
@@ -737,7 +773,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const { data: filesData, error: filesError } = await supabase.from('project_files').select('*').eq('project_id', projectId).order('file_path');
       if (filesError) throw filesError;
       setFiles(filesData);
-      if (filesData.length > 0) { setActiveFile(filesData[0].file_path); setFileContent(filesData[0].file_content); }
+      let rememberedPath: string | null = null;
+      if (workspaceMemoryKey) {
+        try {
+          const memory = JSON.parse(localStorage.getItem(workspaceMemoryKey) || '{}');
+          rememberedPath = typeof memory.activeFile === 'string' ? memory.activeFile : null;
+          if (typeof memory.rightPanelTab === 'string') setRightPanelTab(memory.rightPanelTab);
+        } catch {}
+      }
+      const initialFile = filesData.find((file) => file.file_path === rememberedPath) || filesData[0];
+      if (initialFile) {
+        setActiveFile(initialFile.file_path);
+        setFileContent(initialFile.file_content);
+      } else {
+        setActiveFile(null);
+        setFileContent('');
+      }
     } catch (error) {
       console.error('Error:', error);
       toast({ title: 'Error', description: 'Failed to load project', variant: 'destructive' });
@@ -791,28 +842,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const selectFile = (filePath: string) => {
     const file = files.find(f => f.file_path === filePath);
     if (file) {
+      const previous = files.find(f => f.file_path === activeFile);
+      if (project && previous && previous.file_content !== fileContent) {
+        void supabase.from('project_files').update({ file_content: fileContent }).eq('id', previous.id);
+      }
       setActiveFile(filePath);
       setFileContent(file.file_content);
-      setHistory(prev => [...prev.slice(0, historyIndex + 1), { content: file.file_content, file: filePath }]);
-      setHistoryIndex(prev => prev + 1);
     }
   };
 
-  const handleUndo = () => { if (historyIndex > 0) { const prev = history[historyIndex - 1]; setFileContent(prev.content); setActiveFile(prev.file); setHistoryIndex(historyIndex - 1); } };
-  const handleRedo = () => { if (historyIndex < history.length - 1) { const next = history[historyIndex + 1]; setFileContent(next.content); setActiveFile(next.file); setHistoryIndex(historyIndex + 1); } };
-
-  const handleCopilotUpdateFile = async (content: string) => {
-    setFileContent(content);
-    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: content } : f));
-    if (project && activeFile) {
-      try {
-        const fileToUpdate = files.find(f => f.file_path === activeFile);
-        if (fileToUpdate) {
-          await supabase.from('project_files').update({ file_content: content }).eq('id', fileToUpdate.id);
-        }
-      } catch {}
-    }
-  };
+  const handleUndo = () => editorRef.current?.trigger('bulbai-toolbar', 'undo', null);
+  const handleRedo = () => editorRef.current?.trigger('bulbai-toolbar', 'redo', null);
 
   const handleCopilotCreateFile = async (path: string, content: string, type: string) => {
     // Check if file already exists — update it instead
@@ -1010,10 +1050,14 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const openPreviewInNewTab = () => {
-    const previewBlob = new Blob([buildPreviewHtml()], { type: 'text/html' });
-    const previewUrl = URL.createObjectURL(previewBlob);
-    window.open(previewUrl, '_blank');
-    setTimeout(() => URL.revokeObjectURL(previewUrl), 30000);
+    const previewWindow = window.open('', '_blank');
+    if (!previewWindow) {
+      toast({ title: 'Preview blocked', description: 'Allow pop-ups for BulbAI and try again.', variant: 'destructive' });
+      return;
+    }
+    previewWindow.document.open();
+    previewWindow.document.write(buildPreviewHtml());
+    previewWindow.document.close();
   };
 
   const handleMoveFile = async (sourcePath: string, targetFolder: string) => {
@@ -1208,10 +1252,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         
         <div className="flex items-center gap-1 flex-shrink-0">
-          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={historyIndex <= 0} className={cn(historyIndex <= 0 && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Undo">
+          <Button variant="ghost" size="sm" onClick={handleUndo} disabled={!activeFile || Boolean(currentChange)} className={cn((!activeFile || currentChange) && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Undo editor change">
             <Undo2 className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={historyIndex >= history.length - 1} className={cn(historyIndex >= history.length - 1 && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Redo">
+          <Button variant="ghost" size="sm" onClick={handleRedo} disabled={!activeFile || Boolean(currentChange)} className={cn((!activeFile || currentChange) && "opacity-40", "hidden sm:flex w-8 h-8 p-0")} title="Redo editor change">
             <Redo2 className="w-4 h-4" />
           </Button>
           {autoSaveStatus !== 'idle' && (
