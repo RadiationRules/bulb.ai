@@ -136,8 +136,6 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     }
   };
 
-  const publicLink = `${window.location.origin}/project/${projectId}`;
-
   const copyText = (value: string, label: string) => {
     navigator.clipboard.writeText(value);
     toast({ title: `${label} copied!`, duration: 1500 });
@@ -233,15 +231,9 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
               <Copy className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="sm" asChild>
-              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site">
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site" onClick={onClose}>
                 <ExternalLink className="w-4 h-4" />
               </a>
-            </Button>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 border border-primary/30 rounded-xl">
-            <span className="flex-1 truncate text-primary font-mono text-xs">{publicLink}</span>
-            <Button variant="ghost" size="sm" onClick={() => copyText(publicLink, 'Share link')} title="Copy shareable BulbAI link">
-              <Copy className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -272,7 +264,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
           )}
           {status === 'success' && deployUrl && (
             <Button asChild>
-              <a href={deployUrl} target="_blank" rel="noopener noreferrer">
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" onClick={onClose}>
                 Visit Site <ExternalLink className="w-4 h-4 ml-2" />
               </a>
             </Button>
