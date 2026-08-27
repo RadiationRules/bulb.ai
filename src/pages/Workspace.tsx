@@ -521,8 +521,6 @@ export default function Workspace() {
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [codingFile, setCodingFile] = useState<string | null>(null);
   const [showAICodingScreen, setShowAICodingScreen] = useState(false);
-  const [history, setHistory] = useState<{content: string, file: string}[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
   const [showFileSearch, setShowFileSearch] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -856,19 +854,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const handleUndo = () => editorRef.current?.trigger('bulbai-toolbar', 'undo', null);
   const handleRedo = () => editorRef.current?.trigger('bulbai-toolbar', 'redo', null);
 
-  const handleCopilotUpdateFile = async (content: string) => {
-    setFileContent(content);
-    setFiles(prev => prev.map(f => f.file_path === activeFile ? { ...f, file_content: content } : f));
-    if (project && activeFile) {
-      try {
-        const fileToUpdate = files.find(f => f.file_path === activeFile);
-        if (fileToUpdate) {
-          await supabase.from('project_files').update({ file_content: content }).eq('id', fileToUpdate.id);
-        }
-      } catch {}
-    }
-  };
-
   const handleCopilotCreateFile = async (path: string, content: string, type: string) => {
     // Check if file already exists — update it instead
     const existing = files.find(f => f.file_path === path);
@@ -928,10 +913,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (next.length) {
         setActiveFile(next[0].path);
         setFileContent(next[0].type === 'create' ? '' : next[0].oldContent);
-      } else {
-        const selected = filesRef.current.find((file) => file.file_path === activeFileRef.current) || filesRef.current[0];
-        setActiveFile(selected?.file_path || null);
-        setFileContent(selected?.file_content || '');
       }
       return next;
     });
