@@ -83,7 +83,7 @@ export function LiveCodingAnimation({ code, fileName, isActive, onComplete }: Li
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <Zap className="h-3 w-3 text-yellow-500" />
-                <span className="text-xs text-muted-foreground">GPT-5 • Real-time Generation</span>
+                <span className="text-xs text-muted-foreground">Claude Mythos 5 • Real-time Generation</span>
               </div>
             </div>
           </div>

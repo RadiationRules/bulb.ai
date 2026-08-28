@@ -121,7 +121,7 @@ export const AICodingScreen = ({ isActive, filename, code, onClose }: AICodingSc
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2">
               <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
-                GPT-5 is coding
+                Claude Mythos 5 is coding
               </span>
               <span className="flex gap-1">
                 {[0, 1, 2].map(i => (

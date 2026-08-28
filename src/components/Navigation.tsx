@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BulbIcon } from "./BulbIcon";
 import { AuthModal } from "./AuthModal";
@@ -18,6 +19,7 @@ export const Navigation = () => {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -172,10 +174,15 @@ export const Navigation = () => {
                 <Brain className="h-4 w-4" />
                 <span>Features</span>
               </a>
-              <a href="#chat-section" className="flex items-center space-x-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/50">
-                <MessageCircle className="h-4 w-4" />
-                <span>AI Chat</span>
-              </a>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setIsOpen(false); handleOpenChat(); }}
+                className="w-full justify-start text-muted-foreground hover:text-foreground px-3 py-2"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                AI Chat
+              </Button>
               <Button
                 variant="ghost"
                 size="sm" 
