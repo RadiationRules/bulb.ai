@@ -27,14 +27,22 @@ export const Navigation = () => {
     }
   };
 
-  const handleGetStarted = () => {
+  const handleOpenChat = () => {
     if (user) {
-      // User is logged in, scroll to chat or open chat interface
-      document.getElementById('chat-section')?.scrollIntoView({ behavior: 'smooth' });
+      navigate('/chat');
     } else {
       setShowAuthModal(true);
     }
   };
+
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/chat');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-lg">
