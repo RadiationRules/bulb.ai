@@ -51,6 +51,23 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
     }
   }, [profile, open]);
 
+  // Detect an active GitHub connection on the signed-in account
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!active || !user) return;
+      const identities = user.identities || [];
+      const gh = identities.find((i: { provider: string }) => i.provider === 'github');
+      const meta = user.user_metadata as { user_name?: string; preferred_username?: string } | undefined;
+      setGithubConnected(!!gh);
+      setGithubUsername(meta?.user_name || meta?.preferred_username || null);
+    })();
+    return () => { active = false; };
+  }, [open]);
+
+
   const loadUserPreferences = async () => {
     try {
       const { data: preferences } = await supabase
