@@ -116,6 +116,15 @@ export const useChat = (projectId?: string) => {
     loadMessages();
   }, [projectId]);
 
+  // Mirror non-database chats (e.g. the global /chat room) into localStorage
+  useEffect(() => {
+    if (isDbBacked || !localKey) return;
+    try {
+      localStorage.setItem(localKey, JSON.stringify(messages.slice(-100)));
+    } catch { /* ignore */ }
+  }, [messages, isDbBacked, localKey]);
+
+
   // Persist a message to Supabase
   const persistMessage = async (role: 'user' | 'assistant', content: string) => {
     if (!projectId) return;
