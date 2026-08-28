@@ -48,15 +48,19 @@ export const Navigation = () => {
           </div>
           
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-6 absolute left-1/2 -translate-x-1/2">
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
               <Brain className="h-4 w-4" />
               <span>Features</span>
             </a>
-            <a href="#chat-section" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
-              <MessageCircle className="h-4 w-4" />
-              <span>AI Chat</span>
-            </a>
+            <Button
+              size="sm"
+              onClick={handleOpenChat}
+              className="tech-gradient hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="h-4 w-4 mr-1" />
+              AI Chat
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -67,6 +71,7 @@ export const Navigation = () => {
               Settings
             </Button>
           </div>
+
           
           {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-2">
