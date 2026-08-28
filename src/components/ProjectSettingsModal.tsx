@@ -189,9 +189,13 @@ export const ProjectSettingsModal = ({
       onOpenChange(false);
     } catch (error) {
       console.error('Error saving settings:', error);
+      const raw = (error as { message?: string })?.message || '';
+      const friendly = raw.includes('successful deployment')
+        ? 'Deploy this project once before making it public.'
+        : raw || 'Failed to save settings. Please try again.';
       toast({
         title: 'Error',
-        description: 'Failed to save settings. Please try again.',
+        description: friendly,
         variant: 'destructive',
       });
     } finally {

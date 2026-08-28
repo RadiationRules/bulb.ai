@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Settings, Palette, Zap, User, Shield, Bell, Monitor, Code2, Cloud, Crown } from "lucide-react";
+import { Settings, Palette, Zap, User, Shield, Bell, Monitor, Code2, Cloud, Crown, Check } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminPanel } from "@/components/AdminPanel";
+import { cn } from "@/lib/utils";
 
 interface SettingsModalProps {
   open: boolean;
@@ -40,6 +41,8 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
     performanceMode: "balanced"
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [githubConnected, setGithubConnected] = useState(false);
+  const [githubUsername, setGithubUsername] = useState<string | null>(null);
 
   // Load user preferences on mount
   useEffect(() => {
