@@ -1,5 +1,6 @@
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /workspace/
+Disallow: /auth/callback
 
-Sitemap: https://bulbai.vercel.app/sitemap.xml
-
+Sitemap: https://bulb-ai.lovable.app/sitemap.xml

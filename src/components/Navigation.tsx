@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { BulbIcon } from "./BulbIcon";
 import { AuthModal } from "./AuthModal";
@@ -18,6 +19,7 @@ export const Navigation = () => {
   const [showApiConfig, setShowApiConfig] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
@@ -27,19 +29,27 @@ export const Navigation = () => {
     }
   };
 
-  const handleGetStarted = () => {
+  const handleOpenChat = () => {
     if (user) {
-      // User is logged in, scroll to chat or open chat interface
-      document.getElementById('chat-section')?.scrollIntoView({ behavior: 'smooth' });
+      navigate('/chat');
     } else {
       setShowAuthModal(true);
     }
   };
 
+  const handleGetStarted = () => {
+    if (user) {
+      navigate('/chat');
+    } else {
+      setShowAuthModal(true);
+    }
+  };
+
+
   return (
     <nav className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-lg border-b border-border/50 shadow-lg">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+        <div className="relative flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <BulbIcon className="w-8 h-8" animated />
             <span className="text-2xl font-bold bg-gradient-to-r from-tech-blue to-bulb-glow bg-clip-text text-transparent">
@@ -48,15 +58,19 @@ export const Navigation = () => {
           </div>
           
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-6 absolute left-1/2 -translate-x-1/2">
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
               <Brain className="h-4 w-4" />
               <span>Features</span>
             </a>
-            <a href="#chat-section" className="text-muted-foreground hover:text-foreground transition-colors flex items-center space-x-1">
-              <MessageCircle className="h-4 w-4" />
-              <span>AI Chat</span>
-            </a>
+            <Button
+              size="sm"
+              onClick={handleOpenChat}
+              className="tech-gradient hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="h-4 w-4 mr-1" />
+              AI Chat
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -67,6 +81,7 @@ export const Navigation = () => {
               Settings
             </Button>
           </div>
+
           
           {/* Desktop Auth Section */}
           <div className="hidden md:flex items-center space-x-2">
@@ -159,10 +174,15 @@ export const Navigation = () => {
                 <Brain className="h-4 w-4" />
                 <span>Features</span>
               </a>
-              <a href="#chat-section" className="flex items-center space-x-2 px-3 py-2 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary/50">
-                <MessageCircle className="h-4 w-4" />
-                <span>AI Chat</span>
-              </a>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setIsOpen(false); handleOpenChat(); }}
+                className="w-full justify-start text-muted-foreground hover:text-foreground px-3 py-2"
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                AI Chat
+              </Button>
               <Button
                 variant="ghost"
                 size="sm" 

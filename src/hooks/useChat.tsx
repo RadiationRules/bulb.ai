@@ -12,7 +12,11 @@ interface Message {
 
 const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const useChat = (projectId?: string) => {
+  const isDbBacked = !!projectId && UUID_RE.test(projectId);
+  const localKey = projectId ? `bulbai:chat:${projectId}` : null;
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentFile, setCurrentFile] = useState<string | null>(null);
@@ -84,6 +88,14 @@ export const useChat = (projectId?: string) => {
     if (!projectId || loadedRef.current) return;
     loadedRef.current = true;
 
+    if (!isDbBacked) {
+      try {
+        const raw = localKey ? localStorage.getItem(localKey) : null;
+        if (raw) setMessages(JSON.parse(raw));
+      } catch { /* ignore */ }
+      return;
+    }
+
     const loadMessages = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -104,9 +116,19 @@ export const useChat = (projectId?: string) => {
     loadMessages();
   }, [projectId]);
 
+  // Mirror non-database chats (e.g. the global /chat room) into localStorage
+  useEffect(() => {
+    if (isDbBacked || !localKey) return;
+    try {
+      localStorage.setItem(localKey, JSON.stringify(messages.slice(-100)));
+    } catch { /* ignore */ }
+  }, [messages, isDbBacked, localKey]);
+
+
   // Persist a message to Supabase
   const persistMessage = async (role: 'user' | 'assistant', content: string) => {
     if (!projectId) return;
+    if (!isDbBacked) return;
     
     try {
       const { data: { user } } = await supabase.auth.getUser();

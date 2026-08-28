@@ -319,7 +319,7 @@ export function Terminal({ onClose, files = [], onCreateFile, onDeleteFile, onCo
           term.writeln('\x1b[36m   |_| \\_\\_,_|_|_|_|_) | /_/   \\_\\___|\x1b[0m');
           term.writeln('');
           term.writeln('   \x1b[33mOS:\x1b[0m BulbAI Cloud v2.0');
-          term.writeln('   \x1b[33mKernel:\x1b[0m GPT-5 Neural Core');
+          term.writeln('   \x1b[33mKernel:\x1b[0m Claude Mythos 5 Neural Core');
           term.writeln('   \x1b[33mShell:\x1b[0m Smart Terminal');
           term.writeln('   \x1b[33mFiles:\x1b[0m ' + getFiles().length);
           term.writeln('   \x1b[33mProject:\x1b[0m ' + projectName);
