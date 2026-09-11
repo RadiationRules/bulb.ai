@@ -55,17 +55,23 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
   useEffect(() => {
     if (!open) return;
     let active = true;
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!active || !user) return;
-      const identities = user.identities || [];
+    const syncGithub = (currentUser: typeof user) => {
+      if (!active || !currentUser) {
+        setGithubConnected(false);
+        setGithubUsername(null);
+        return;
+      }
+      const identities = currentUser.identities || [];
       const gh = identities.find((i: { provider: string }) => i.provider === 'github');
-      const meta = user.user_metadata as { user_name?: string; preferred_username?: string } | undefined;
+      const identityData = gh?.identity_data as { user_name?: string; preferred_username?: string } | undefined;
+      const meta = currentUser.user_metadata as { user_name?: string; preferred_username?: string } | undefined;
       setGithubConnected(!!gh);
-      setGithubUsername(meta?.user_name || meta?.preferred_username || null);
-    })();
-    return () => { active = false; };
-  }, [open]);
+      setGithubUsername(identityData?.user_name || identityData?.preferred_username || meta?.user_name || meta?.preferred_username || null);
+    };
+    void supabase.auth.getUser().then(({ data }) => syncGithub(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => syncGithub(nextSession?.user || null));
+    return () => { active = false; subscription.unsubscribe(); };
+  }, [open, user]);
 
 
   const loadUserPreferences = async () => {
@@ -440,7 +446,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     </h3>
                     <p className="text-white/70 text-sm mt-1">
                       {githubConnected
-                        ? `Connected as ${githubUsername || 'your GitHub account'} — projects can be pushed and hosted automatically.`
+                        ? `Connected as ${githubUsername || 'your GitHub account'} — repository sync is ready.`
                         : 'Connect your GitHub account to deploy projects and sync repositories'}
                     </p>
                   </div>
@@ -453,9 +459,9 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                       <Check className="h-5 w-5 text-green-500" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-green-500">Connected through GitHub</p>
+                        <p className="text-sm font-medium text-green-500">Connected through GitHub</p>
                       <p className="text-xs text-muted-foreground">
-                        Automatic hosting is enabled — deploys push straight from your GitHub account.
+                          Hosting status: ready to configure when you choose a repository.
                       </p>
                     </div>
                   </div>
@@ -485,7 +491,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     const { error } = await supabase.auth.signInWithOAuth({
                       provider: 'github',
                       options: {
-                        redirectTo: window.location.origin,
+                        redirectTo: `${window.location.origin}/auth/callback`,
                         scopes: 'repo read:user user:email'
                       }
                     });

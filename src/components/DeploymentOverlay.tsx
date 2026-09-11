@@ -17,6 +17,8 @@ interface DeploymentOverlayProps {
 
 const STAGES = ['Uploading', 'Building', 'Deploying', 'Live'] as const;
 
+const deploymentKey = (projectId: string) => `bulbai:deployment:${projectId}`;
+
 export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, files, onDeployComplete }: DeploymentOverlayProps) {
   const [stage, setStage] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -39,9 +41,16 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     }
 
     if (hasStartedRef.current) return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(deploymentKey(projectId)) || '{}');
+      if (saved.status === 'success' || saved.status === 'dismissed') {
+        onClose();
+        return;
+      }
+    } catch { /* start a fresh deployment */ }
     hasStartedRef.current = true;
     startDeploy();
-  }, [isOpen]);
+  }, [isOpen, projectId]);
 
   const addLog = (msg: string) => setLogs(prev => [...prev, msg]);
 
@@ -57,6 +66,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     setStatus('deploying');
     setStage(0);
     setProgress(5);
+    sessionStorage.setItem(deploymentKey(projectId), JSON.stringify({ status: 'deploying', startedAt: Date.now() }));
     addLog('🚀 Initializing deployment pipeline...');
 
     try {
@@ -123,6 +133,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       setProgress(100);
       addLog(`✅ Live at: ${url}`);
       setStatus('success');
+      sessionStorage.setItem(deploymentKey(projectId), JSON.stringify({ status: 'success', url, completedAt: Date.now() }));
       setShowConfetti(true);
       onDeployComplete?.(url);
 
@@ -131,6 +142,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
 
     } catch (err) {
       setStatus('failed');
+      sessionStorage.setItem(deploymentKey(projectId), JSON.stringify({ status: 'failed', failedAt: Date.now() }));
       setProgress(0);
       addLog(`❌ ${err instanceof Error ? err.message : 'Deployment failed'}`);
     }
@@ -142,6 +154,11 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
   };
 
   const copyUrl = () => copyText(deployUrl, 'Live URL');
+
+  const openLiveSite = () => {
+    sessionStorage.setItem(deploymentKey(projectId), JSON.stringify({ status: 'dismissed', url: deployUrl, dismissedAt: Date.now() }));
+    onClose();
+  };
 
 
   if (!isOpen) return null;
@@ -231,7 +248,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
               <Copy className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="sm" asChild>
-              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site" onClick={onClose}>
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" title="Open live site" onClick={openLiveSite}>
                 <ExternalLink className="w-4 h-4" />
               </a>
             </Button>
@@ -264,7 +281,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
           )}
           {status === 'success' && deployUrl && (
             <Button asChild>
-              <a href={deployUrl} target="_blank" rel="noopener noreferrer" onClick={onClose}>
+              <a href={deployUrl} target="_blank" rel="noopener noreferrer" onClick={openLiveSite}>
                 Visit Site <ExternalLink className="w-4 h-4 ml-2" />
               </a>
             </Button>
