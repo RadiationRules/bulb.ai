@@ -226,7 +226,13 @@ const streamChat = async (key: string, projectId: string | undefined, userMessag
     session.abortController = null;
     if ((error as Error).name !== 'AbortError') {
       const text = error instanceof z.ZodError ? `Validation: ${error.errors[0].message}` : (error as Error).message || 'Unknown error';
-      session.messages = [...session.messages, { role: 'assistant', content: `⚠️ ${text}` }];
+      const next = [...session.messages];
+      if (next[next.length - 1]?.role === 'assistant' && next[next.length - 1].content === '') {
+        next[next.length - 1] = { role: 'assistant', content: `⚠️ ${text}` };
+      } else {
+        next.push({ role: 'assistant', content: `⚠️ ${text}` });
+      }
+      session.messages = next;
     }
     emit(key);
   }

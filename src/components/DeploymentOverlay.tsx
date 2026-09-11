@@ -43,7 +43,7 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
     if (hasStartedRef.current) return;
     try {
       const saved = JSON.parse(sessionStorage.getItem(deploymentKey(projectId)) || '{}');
-      if (saved.status === 'success' || saved.status === 'dismissed') {
+      if (saved.status === 'deploying' || saved.status === 'success' || saved.status === 'dismissed') {
         onClose();
         return;
       }
