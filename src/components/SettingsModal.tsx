@@ -487,8 +487,8 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                       ? "bg-green-600 hover:bg-green-700"
                       : "bg-[#24292e] hover:bg-[#1a1e22]"
                   )}
-                  onClick={async () => {
-                    const { error } = await supabase.auth.signInWithOAuth({
+                    onClick={async () => {
+                    const { error } = await supabase.auth.linkIdentity({
                       provider: 'github',
                       options: {
                         redirectTo: `${window.location.origin}/auth/callback`,
@@ -498,7 +498,7 @@ export const SettingsModal = ({ open, onOpenChange }: SettingsModalProps) => {
                     if (error) {
                       toast({
                         title: 'Connection Failed',
-                        description: 'Check Supabase GitHub OAuth settings',
+                        description: error.message,
                         variant: 'destructive'
                       });
                     }
