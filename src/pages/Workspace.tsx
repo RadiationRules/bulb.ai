@@ -1017,8 +1017,13 @@ document.addEventListener('DOMContentLoaded', () => {
     await deletePaths([path]);
   };
 
+  const getLatestFiles = () => filesRef.current.map((file) =>
+    file.file_path === activeFileRef.current ? { ...file, file_content: fileContentRef.current } : file
+  );
+
   const buildPreviewHtml = () => {
-    let htmlFile = files.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
+    const latestFiles = getLatestFiles();
+    let htmlFile = latestFiles.find((file) => file.file_path === 'index.html')?.file_content || `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1034,12 +1039,12 @@ document.addEventListener('DOMContentLoaded', () => {
     htmlFile = htmlFile.replace(/<link[^>]*rel=["']stylesheet["'][^>]*href=["'][^"']+["'][^>]*\/?>/gi, '');
     htmlFile = htmlFile.replace(/<script[^>]*src=["'][^"']+["'][^>]*><\/script>/gi, '');
 
-    const cssBlocks = files
+    const cssBlocks = latestFiles
       .filter((file) => file.file_path.endsWith('.css'))
       .map((file) => `<style>/* ${file.file_path} */\n${file.file_content}</style>`)
       .join('\n');
 
-    const jsBlocks = files
+    const jsBlocks = latestFiles
       .filter((file) => file.file_path.endsWith('.js'))
       .map((file) => `<script>/* ${file.file_path} */\n${file.file_content}<\/script>`)
       .join('\n');
@@ -1058,6 +1063,10 @@ document.addEventListener('DOMContentLoaded', () => {
     previewWindow.document.open();
     previewWindow.document.write(buildPreviewHtml());
     previewWindow.document.close();
+    const target = filesRef.current.find((file) => file.file_path === activeFileRef.current);
+    if (project && target && target.file_content !== fileContentRef.current) {
+      void supabase.from('project_files').update({ file_content: fileContentRef.current }).eq('id', target.id);
+    }
   };
 
   const handleMoveFile = async (sourcePath: string, targetFolder: string) => {
@@ -1204,7 +1213,7 @@ document.addEventListener('DOMContentLoaded', () => {
           onClose={() => setShowDeployOverlay(false)}
           projectId={project.id}
           projectName={project.title}
-          files={files}
+            files={getLatestFiles()}
           onDeployComplete={(url) => {
             if (user) {
               supabase.from('project_snapshots').insert({
@@ -1279,7 +1288,14 @@ document.addEventListener('DOMContentLoaded', () => {
           <Button 
             size="sm" 
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-green-500/25 transition-all hover:scale-105"
-            onClick={() => setShowDeployOverlay(true)}
+            onClick={() => {
+              if (project) sessionStorage.removeItem(`bulbai:deployment:${project.id}`);
+              const target = filesRef.current.find((file) => file.file_path === activeFileRef.current);
+              if (project && target && target.file_content !== fileContentRef.current) {
+                void supabase.from('project_files').update({ file_content: fileContentRef.current }).eq('id', target.id);
+              }
+              setShowDeployOverlay(true);
+            }}
           >
             <Rocket className="w-4 h-4 mr-1" />
             <span className="hidden sm:inline">Deploy</span>

@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
+Disallow: /auth
 Disallow: /workspace/
 Disallow: /auth/callback
+Disallow: /dashboard
+Disallow: /chat
+Disallow: /project/
 
 Sitemap: https://bulb-ai.lovable.app/sitemap.xml

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -10,330 +10,273 @@ interface Message {
   images?: string[];
 }
 
+interface ChatSessionState {
+  messages: Message[];
+  isLoading: boolean;
+  currentFile: string | null;
+  aiStage: AiStage;
+  stageDetail: string;
+  loaded: boolean;
+  abortController: AbortController | null;
+  visibleContent: string;
+  targetContent: string;
+  typingTimer: ReturnType<typeof setTimeout> | null;
+  streamFinished: boolean;
+  idleTimer: ReturnType<typeof setTimeout> | null;
+}
+
 const messageSchema = z.string().trim().min(1, 'Message cannot be empty').max(10000, 'Message too long');
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const sessions = new Map<string, ChatSessionState>();
+const listeners = new Map<string, Set<() => void>>();
 
-export const useChat = (projectId?: string) => {
-  const isDbBacked = !!projectId && UUID_RE.test(projectId);
-  const localKey = projectId ? `bulbai:chat:${projectId}` : null;
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentFile, setCurrentFile] = useState<string | null>(null);
-  const [aiStage, setAiStage] = useState<AiStage>('idle');
-  const [stageDetail, setStageDetail] = useState<string>('');
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadedRef = useRef(false);
-  const visibleContentRef = useRef('');
-  const targetContentRef = useRef('');
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const streamFinishedRef = useRef(false);
+const createSession = (): ChatSessionState => ({
+  messages: [], isLoading: false, currentFile: null, aiStage: 'idle', stageDetail: '', loaded: false,
+  abortController: null, visibleContent: '', targetContent: '', typingTimer: null, streamFinished: false, idleTimer: null,
+});
 
-  const stopTypingTimer = useCallback(() => {
-    if (typingTimerRef.current) {
-      clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-    }
-  }, []);
+const getKey = (projectId?: string) => projectId || 'anonymous-chat';
+const getSession = (key: string) => {
+  let session = sessions.get(key);
+  if (!session) {
+    session = createSession();
+    sessions.set(key, session);
+  }
+  return session;
+};
 
-  const updateAssistantMessage = useCallback((content: string) => {
-    setMessages(prev => {
-      const next = [...prev];
-      if (next[next.length - 1]?.role === 'assistant') {
-        next[next.length - 1] = { role: 'assistant', content };
-      }
-      return next;
+const emit = (key: string) => {
+  const session = getSession(key);
+  if (!UUID_RE.test(key) && key !== 'anonymous-chat') {
+    try { localStorage.setItem(`bulbai:chat:${key}`, JSON.stringify(session.messages.slice(-100))); } catch { /* ignore */ }
+  }
+  listeners.get(key)?.forEach((listener) => listener());
+};
+
+const updateAssistantMessage = (key: string, content: string) => {
+  const session = getSession(key);
+  const next = [...session.messages];
+  if (next[next.length - 1]?.role === 'assistant') next[next.length - 1] = { role: 'assistant', content };
+  session.messages = next;
+  emit(key);
+};
+
+const finishStream = (key: string) => {
+  const session = getSession(key);
+  session.aiStage = 'done';
+  session.stageDetail = 'Complete';
+  session.isLoading = false;
+  session.currentFile = null;
+  session.abortController = null;
+  emit(key);
+  window.dispatchEvent(new CustomEvent('bulbai:credits-changed'));
+  if (session.idleTimer) clearTimeout(session.idleTimer);
+  session.idleTimer = setTimeout(() => {
+    session.aiStage = 'idle';
+    session.stageDetail = '';
+    emit(key);
+  }, 2000);
+};
+
+const typeNextFrame = (key: string) => {
+  const session = getSession(key);
+  if (session.visibleContent.length < session.targetContent.length) {
+    const backlog = session.targetContent.length - session.visibleContent.length;
+    const step = Math.max(1, Math.min(10, Math.ceil(backlog / 45)));
+    session.visibleContent = session.targetContent.slice(0, session.visibleContent.length + step);
+    updateAssistantMessage(key, session.visibleContent);
+    session.typingTimer = setTimeout(() => typeNextFrame(key), 16);
+    return;
+  }
+  session.typingTimer = null;
+  if (session.streamFinished) finishStream(key);
+};
+
+const queueAssistantContent = (key: string, content: string) => {
+  const session = getSession(key);
+  session.targetContent = content;
+  if (!session.typingTimer) session.typingTimer = setTimeout(() => typeNextFrame(key), 16);
+};
+
+const persistMessage = async (projectId: string | undefined, role: 'user' | 'assistant', content: string) => {
+  if (!projectId || !UUID_RE.test(projectId)) return;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { error } = await supabase.from('chat_messages').insert({ project_id: projectId, user_id: user.id, role, content });
+  if (error) console.error('Failed to persist message:', error.message);
+};
+
+const loadSession = async (key: string, projectId?: string) => {
+  const session = getSession(key);
+  if (session.loaded) return;
+  session.loaded = true;
+  if (!projectId || !UUID_RE.test(projectId)) {
+    try {
+      const raw = projectId ? localStorage.getItem(`bulbai:chat:${projectId}`) : null;
+      if (raw && session.messages.length === 0) session.messages = JSON.parse(raw);
+    } catch { /* ignore */ }
+    emit(key);
+    return;
+  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || session.messages.length > 0 || session.isLoading) return;
+  const { data } = await supabase.from('chat_messages').select('role, content').eq('project_id', projectId).eq('user_id', user.id).order('created_at', { ascending: true }).limit(100);
+  if (data && session.messages.length === 0 && !session.isLoading) {
+    session.messages = data.map((message) => ({ role: message.role as 'user' | 'assistant', content: message.content }));
+    emit(key);
+  }
+};
+
+const streamChat = async (key: string, projectId: string | undefined, userMessage: string, displayMessage?: string, images?: string[]) => {
+  const session = getSession(key);
+  if (session.isLoading) return;
+  try {
+    const validatedMessage = messageSchema.parse(userMessage);
+    const shownMessage = displayMessage || validatedMessage;
+    const history = [...session.messages, { role: 'user' as const, content: userMessage }];
+    session.messages = [...session.messages, { role: 'user', content: shownMessage, images }];
+    session.isLoading = true;
+    session.currentFile = null;
+    session.aiStage = 'thinking';
+    session.stageDetail = 'Planning approach...';
+    if (session.typingTimer) clearTimeout(session.typingTimer);
+    session.typingTimer = null;
+    session.visibleContent = '';
+    session.targetContent = '';
+    session.streamFinished = false;
+    emit(key);
+    void persistMessage(projectId, 'user', shownMessage);
+
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    if (!authSession) throw new Error('Please sign in to use the AI assistant');
+    session.abortController = new AbortController();
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      body: JSON.stringify({ messages: history, images: images || null }),
+      signal: session.abortController.signal,
     });
-  }, []);
-
-  const finishStream = useCallback(() => {
-    setAiStage('done');
-    setStageDetail('Complete');
-    setIsLoading(false);
-    setCurrentFile(null);
-    abortControllerRef.current = null;
-    window.dispatchEvent(new CustomEvent('bulbai:credits-changed'));
-    setTimeout(() => { setAiStage('idle'); setStageDetail(''); }, 2000);
-  }, []);
-
-  const typeNextFrame = useCallback(() => {
-    const visible = visibleContentRef.current;
-    const target = targetContentRef.current;
-
-    if (visible.length < target.length) {
-      const backlog = target.length - visible.length;
-      const step = Math.max(1, Math.min(10, Math.ceil(backlog / 45)));
-      const next = target.slice(0, visible.length + step);
-      visibleContentRef.current = next;
-      updateAssistantMessage(next);
-      typingTimerRef.current = setTimeout(typeNextFrame, 16);
-      return;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      throw new Error(errorData.error || `AI request failed (${response.status})`);
     }
+    if (!response.body) throw new Error('The AI returned an empty response');
 
-    typingTimerRef.current = null;
-    if (streamFinishedRef.current) finishStream();
-  }, [finishStream, updateAssistantMessage]);
-
-  const queueAssistantContent = useCallback((content: string) => {
-    targetContentRef.current = content;
-    if (!typingTimerRef.current) {
-      typingTimerRef.current = setTimeout(typeNextFrame, 16);
-    }
-  }, [typeNextFrame]);
-
-  useEffect(() => () => stopTypingTimer(), [stopTypingTimer]);
-
-  // Load persisted messages on mount
-  useEffect(() => {
-    if (!projectId || loadedRef.current) return;
-    loadedRef.current = true;
-
-    if (!isDbBacked) {
-      try {
-        const raw = localKey ? localStorage.getItem(localKey) : null;
-        if (raw) setMessages(JSON.parse(raw));
-      } catch { /* ignore */ }
-      return;
-    }
-
-    const loadMessages = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      const { data } = await supabase
-        .from('chat_messages')
-        .select('role, content')
-        .eq('project_id', projectId)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-      if (data && data.length > 0) {
-        setMessages(data.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })));
+    session.messages = [...session.messages, { role: 'assistant', content: '' }];
+    emit(key);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let assistantContent = '';
+    let hasStartedCoding = false;
+    const detectStage = (text: string) => {
+      const createMatch = text.match(/CREATE_FILE:\s*([^\n]+)/);
+      if (createMatch) {
+        session.currentFile = createMatch[1].trim();
+        session.aiStage = 'coding';
+        session.stageDetail = `Writing ${session.currentFile}`;
+        hasStartedCoding = true;
+      } else if (/```/.test(text) && !hasStartedCoding) {
+        session.currentFile = 'code';
+        session.aiStage = 'coding';
+        session.stageDetail = 'Writing code...';
+        hasStartedCoding = true;
+      } else if (!hasStartedCoding && text.length > 10) {
+        session.stageDetail = 'Generating response...';
       }
     };
-
-    loadMessages();
-  }, [projectId]);
-
-  // Mirror non-database chats (e.g. the global /chat room) into localStorage
-  useEffect(() => {
-    if (isDbBacked || !localKey) return;
-    try {
-      localStorage.setItem(localKey, JSON.stringify(messages.slice(-100)));
-    } catch { /* ignore */ }
-  }, [messages, isDbBacked, localKey]);
-
-
-  // Persist a message to Supabase
-  const persistMessage = async (role: 'user' | 'assistant', content: string) => {
-    if (!projectId) return;
-    if (!isDbBacked) return;
-    
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      await supabase.from('chat_messages').insert({
-        project_id: projectId,
-        user_id: user.id,
-        role,
-        content
-      });
-    } catch (err) {
-      console.error('Failed to persist message:', err);
-    }
-  };
-
-  const streamChat = async (userMessage: string, displayMessage?: string, images?: string[]) => {
-    try {
-      const validatedMessage = messageSchema.parse(userMessage);
-      
-      const newUserMessage: Message = { 
-        role: 'user', 
-        content: displayMessage || validatedMessage,
-        images 
-      };
-      setMessages(prev => [...prev, newUserMessage]);
-      setIsLoading(true);
-      setCurrentFile(null);
-      setAiStage('thinking');
-      setStageDetail('Planning approach...');
-      stopTypingTimer();
-      visibleContentRef.current = '';
-      targetContentRef.current = '';
-      streamFinishedRef.current = false;
-
-      // Persist user message
-      persistMessage('user', displayMessage || validatedMessage);
-
-      abortControllerRef.current = new AbortController();
-      
-      const messagesWithContext = [...messages, { role: 'user' as const, content: userMessage }];
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error('Please sign in to use the AI assistant');
-      }
-      
-      const response = await fetch(
-        `https://thpdlrhpodjysrfsokqo.supabase.co/functions/v1/chat`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ 
-            messages: messagesWithContext,
-            images: images || null 
-          }),
-          signal: abortControllerRef.current.signal,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-        
-        if (response.status === 429) throw new Error('Rate limit exceeded. Please wait a moment.');
-        if (response.status === 402) throw new Error('No credits remaining. Credits reset at midnight UTC. Upgrade your plan for more credits → /pricing');
-
-        throw new Error(errorData.error || `API Error: ${response.status}`);
-      }
-
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let assistantContent = '';
-
-      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
-
-      let hasStartedCoding = false;
-      const detectFile = (text: string) => {
-        const createMatch = text.match(/CREATE_FILE:\s*([^\n]+)/);
-        const codeMatch = text.match(/```(\w+)?[\s\S]*?```/);
-        if (createMatch) {
-          const fname = createMatch[1].trim();
-          setCurrentFile(fname);
-          setAiStage('coding');
-          setStageDetail(`Writing ${fname}`);
-          hasStartedCoding = true;
-        } else if (codeMatch && !hasStartedCoding) {
-          setCurrentFile('code');
-          setAiStage('coding');
-          setStageDetail('Writing code...');
-          hasStartedCoding = true;
-        }
-        if (!hasStartedCoding && text.length > 10) {
-          setAiStage('thinking');
-          setStageDetail('Generating response...');
-        }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith(':')) continue;
-          if (!trimmed.startsWith('data: ')) continue;
-
-          const data = trimmed.slice(6);
-          if (data === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              assistantContent += delta;
-              detectFile(assistantContent);
-              queueAssistantContent(assistantContent);
-            }
-          } catch {
-            // Skip malformed JSON
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (delta) {
+            assistantContent += delta;
+            detectStage(assistantContent);
+            queueAssistantContent(key, assistantContent);
           }
-        }
+        } catch { /* skip malformed event */ }
       }
-
-      // Process remaining buffer
-      if (buffer.trim()) {
-        const trimmed = buffer.trim();
-        if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
-          try {
-            const parsed = JSON.parse(trimmed.slice(6));
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              assistantContent += delta;
-              queueAssistantContent(assistantContent);
-            }
-          } catch {}
-        }
-      }
-
-      // Persist assistant response
-      if (assistantContent) {
-        persistMessage('assistant', assistantContent);
-      }
-
-      streamFinishedRef.current = true;
-      queueAssistantContent(assistantContent);
-      if (!assistantContent) finishStream();
-    } catch (error: any) {
-      console.error('Chat error:', error);
-      stopTypingTimer();
-      setIsLoading(false);
-      setCurrentFile(null);
-      setAiStage('idle');
-      setStageDetail('');
-      abortControllerRef.current = null;
-      
-      if (error.name === 'AbortError') return;
-      
-      const errorMsg = error instanceof z.ZodError 
-        ? `Validation: ${error.errors[0].message}`
-        : error.message || 'Unknown error';
-      
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: `⚠️ ${errorMsg}` }
-      ]);
     }
-  };
+    if (buffer.trim().startsWith('data: ') && buffer.trim() !== 'data: [DONE]') {
+      try {
+        const delta = JSON.parse(buffer.trim().slice(6)).choices?.[0]?.delta?.content;
+        if (delta) assistantContent += delta;
+      } catch { /* ignore */ }
+    }
+    if (assistantContent) void persistMessage(projectId, 'assistant', assistantContent);
+    session.streamFinished = true;
+    queueAssistantContent(key, assistantContent);
+    if (!assistantContent) finishStream(key);
+  } catch (error) {
+    if (session.typingTimer) clearTimeout(session.typingTimer);
+    session.typingTimer = null;
+    session.isLoading = false;
+    session.currentFile = null;
+    session.aiStage = 'idle';
+    session.stageDetail = '';
+    session.abortController = null;
+    if ((error as Error).name !== 'AbortError') {
+      const text = error instanceof z.ZodError ? `Validation: ${error.errors[0].message}` : (error as Error).message || 'Unknown error';
+      const next = [...session.messages];
+      if (next[next.length - 1]?.role === 'assistant' && next[next.length - 1].content === '') {
+        next[next.length - 1] = { role: 'assistant', content: `⚠️ ${text}` };
+      } else {
+        next.push({ role: 'assistant', content: `⚠️ ${text}` });
+      }
+      session.messages = next;
+    }
+    emit(key);
+  }
+};
 
+export const useChat = (projectId?: string) => {
+  const key = getKey(projectId);
+  const [, refresh] = useState(0);
+  useEffect(() => {
+    const listener = () => refresh((value) => value + 1);
+    const set = listeners.get(key) || new Set<() => void>();
+    set.add(listener);
+    listeners.set(key, set);
+    void loadSession(key, projectId);
+    return () => { set.delete(listener); };
+  }, [key, projectId]);
+
+  const state = getSession(key);
   const clearMessages = useCallback(async () => {
-    setMessages([]);
-    // Also clear persisted messages
-    if (projectId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('chat_messages').delete().eq('project_id', projectId).eq('user_id', user.id);
-      }
+    const current = getSession(key);
+    if (current.isLoading) current.abortController?.abort();
+    current.messages = [];
+    current.isLoading = false;
+    current.aiStage = 'idle';
+    emit(key);
+    if (!projectId || !UUID_RE.test(projectId)) {
+      if (projectId) localStorage.removeItem(`bulbai:chat:${projectId}`);
+      return;
     }
-  }, [projectId]);
-  
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) await supabase.from('chat_messages').delete().eq('project_id', projectId).eq('user_id', user.id);
+  }, [key, projectId]);
   const stopGeneration = useCallback(() => {
-    abortControllerRef.current?.abort();
-    stopTypingTimer();
-    setIsLoading(false);
-    setCurrentFile(null);
-  }, [stopTypingTimer]);
+    const current = getSession(key);
+    current.abortController?.abort();
+  }, [key]);
 
   return {
-    messages,
-    isLoading,
-    currentFile,
-    aiStage,
-    stageDetail,
-    sendMessage: streamChat,
+    messages: state.messages,
+    isLoading: state.isLoading,
+    currentFile: state.currentFile,
+    aiStage: state.aiStage,
+    stageDetail: state.stageDetail,
+    sendMessage: (message: string, displayMessage?: string, images?: string[]) => streamChat(key, projectId, message, displayMessage, images),
     clearMessages,
     stopGeneration,
   };

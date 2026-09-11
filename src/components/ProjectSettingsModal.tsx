@@ -36,7 +36,8 @@ import {
   Sparkles,
   Image,
   Upload,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +103,7 @@ export const ProjectSettingsModal = ({
   const [previewImageUrl, setPreviewImageUrl] = useState<string>('');
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setTitle(projectTitle);
@@ -164,6 +166,7 @@ export const ProjectSettingsModal = ({
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const updatedTags = [projectType, ...tags.filter(t => t !== projectType)];
       
@@ -190,11 +193,10 @@ export const ProjectSettingsModal = ({
     } catch (error) {
       console.error('Error saving settings:', error);
       const raw = (error as { message?: string })?.message || '';
-      const friendly = raw.includes('successful deployment')
-        ? 'Deploy this project once before making it public.'
-        : raw || 'Failed to save settings. Please try again.';
+      const friendly = raw || 'Failed to save settings. Please try again.';
+      setSaveError(friendly);
       toast({
-        title: 'Error',
+        title: raw.includes('deployment') ? 'Publish blocked' : 'Save failed',
         description: friendly,
         variant: 'destructive',
       });
@@ -523,6 +525,22 @@ export const ProjectSettingsModal = ({
               </button>
             </div>
           </div>
+
+          {saveError && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-3" role="alert">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-destructive">Supabase rejected this change</p>
+                  <p className="text-xs text-muted-foreground mt-1 break-words">{saveError}</p>
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleSave} disabled={saving}>
+                <RefreshCw className={cn('w-3.5 h-3.5 mr-2', saving && 'animate-spin')} />
+                Retry now
+              </Button>
+            </div>
+          )}
 
           {/* Tags */}
           <div className="space-y-2">
