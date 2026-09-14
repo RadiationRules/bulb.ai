@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +28,8 @@ import {
   Briefcase,
   Globe,
   Copy,
-  Clock
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +57,7 @@ interface Project {
   forks_count: number;
   created_at: string;
   preview_image?: string | null;
+  preview_url?: string | null;
   owner: {
     id: string;
     username: string;
@@ -74,6 +77,7 @@ export const CommunityExplore = () => {
   const [loading, setLoading] = useState(true);
   const [likedProjects, setLikedProjects] = useState<Set<string>>(new Set());
   const [remixingId, setRemixingId] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -113,6 +117,7 @@ export const CommunityExplore = () => {
         forks_count: p.forks_count || 0,
         created_at: p.created_at,
         preview_image: p.preview_image,
+        preview_url: p.preview_url,
         owner: {
           id: p.profiles?.id || '',
           username: p.profiles?.username || 'user',
@@ -342,7 +347,7 @@ export const CommunityExplore = () => {
         {/* Preview Image */}
         <div 
           className="relative aspect-video overflow-hidden bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center"
-          onClick={() => navigate(`/workspace/${project.id}`)}
+          onClick={() => setSelectedProject(project)}
         >
           {project.preview_image && !project.preview_image.startsWith('data:image/svg') ? (
             <img src={project.preview_image} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -534,6 +539,65 @@ export const CommunityExplore = () => {
           </p>
         </div>
       )}
+
+      <Dialog open={!!selectedProject} onOpenChange={(open) => !open && setSelectedProject(null)}>
+        <DialogContent className="max-w-3xl">
+          {selectedProject && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">{selectedProject.title}</DialogTitle>
+                <DialogDescription>
+                  by {selectedProject.owner.display_name}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border/50 bg-gradient-to-br from-tech-blue/20 via-tech-purple/10 to-bulb-glow/20 flex items-center justify-center">
+                {selectedProject.preview_image && !selectedProject.preview_image.startsWith('data:image/svg') ? (
+                  <img src={selectedProject.preview_image} alt={`${selectedProject.title} preview`} className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-2">
+                    <BulbIcon className="w-16 h-16 text-bulb-glow" />
+                    <span className="text-xs text-muted-foreground">No preview image yet</span>
+                  </div>
+                )}
+              </div>
+
+              {selectedProject.description && (
+                <p className="text-sm text-muted-foreground">{selectedProject.description}</p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><Star className="w-3 h-3 text-yellow-500" />{formatNumber(selectedProject.stars_count)}</span>
+                <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatNumber(selectedProject.views_count)}</span>
+                <span className="flex items-center gap-1"><GitFork className="w-3 h-3" />{formatNumber(selectedProject.forks_count)}</span>
+                {selectedProject.tags?.slice(0, 4).map(tag => (
+                  <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">{tag}</Badge>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  className="flex-1"
+                  onClick={() => handleRemix(selectedProject)}
+                  disabled={remixingId === selectedProject.id}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  {remixingId === selectedProject.id ? 'Remixing...' : 'Remix this project'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={!selectedProject.preview_url}
+                  onClick={() => selectedProject.preview_url && window.open(selectedProject.preview_url, '_blank', 'noopener,noreferrer')}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  {selectedProject.preview_url ? 'Visit live site' : 'Not deployed yet'}
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
