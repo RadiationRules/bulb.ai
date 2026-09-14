@@ -114,6 +114,7 @@ export const CommunityExplore = () => {
         forks_count: p.forks_count || 0,
         created_at: p.created_at,
         preview_image: p.preview_image,
+        preview_url: p.preview_url,
         owner: {
           id: p.profiles?.id || '',
           username: p.profiles?.username || 'user',
