@@ -28,7 +28,8 @@ import {
   Briefcase,
   Globe,
   Copy,
-  Clock
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
