@@ -446,9 +446,80 @@ export const CommunityExplore = () => {
     );
   };
 
+  const feedProjects = [...projects]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 6);
+
+  const timeAgo = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
   return (
     <div className="space-y-6">
+      {/* Community Feed */}
+      {!loading && feedProjects.length > 0 && (
+        <Card className="bg-card/50 backdrop-blur-sm border-border/50">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-bulb-glow" />
+              <h2 className="text-sm font-semibold">Community feed</h2>
+              <span className="text-xs text-muted-foreground">freshly shared projects</span>
+            </div>
+            <div className="divide-y divide-border/50">
+              {feedProjects.map(project => (
+                <div key={project.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <Avatar className="w-8 h-8 mt-0.5">
+                    <AvatarImage src={project.owner.avatar_url} />
+                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                      {project.owner.display_name[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <button
+                        className="font-medium text-sm hover:text-primary transition-colors truncate"
+                        onClick={() => setSelectedProject(project)}
+                      >
+                        {project.title}
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        shared by {project.owner.display_name} · {timeAgo(project.created_at)}
+                      </span>
+                    </div>
+                    {project.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{project.description}</p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      {project.tags?.slice(0, 4).map(tag => (
+                        <Badge key={tag} variant="outline" className="text-[10px] px-1.5 py-0">{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={project.preview_url ? 'default' : 'outline'}
+                    className="h-7 text-xs flex-shrink-0"
+                    disabled={!project.preview_url}
+                    onClick={() => project.preview_url && window.open(project.preview_url, '_blank', 'noopener,noreferrer')}
+                  >
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    {project.preview_url ? 'Live preview' : 'Not live'}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Search Bar */}
+
       <div className="relative max-w-xl">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
