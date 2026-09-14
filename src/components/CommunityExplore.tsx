@@ -55,6 +55,7 @@ interface Project {
   forks_count: number;
   created_at: string;
   preview_image?: string | null;
+  preview_url?: string | null;
   owner: {
     id: string;
     username: string;
