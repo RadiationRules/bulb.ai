@@ -77,6 +77,7 @@ export const CommunityExplore = () => {
   const [loading, setLoading] = useState(true);
   const [likedProjects, setLikedProjects] = useState<Set<string>>(new Set());
   const [remixingId, setRemixingId] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchProjects();
