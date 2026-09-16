@@ -82,33 +82,50 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
       setProgress(25);
       addLog(`📁 ${Object.keys(projectFiles).length} files ready`);
 
-      // Stage 2: Building
+      // Stage 2: Building — try Vercel, fall back to BulbAI Hosting
       setStage(1);
       setProgress(35);
       addLog('🔧 Connecting to Vercel...');
-      
-      const { data, error } = await supabase.functions.invoke('deploy-vercel', {
-        body: { projectId, projectName, files: projectFiles }
-      });
 
-      if (error) throw error;
-      if (data?.needsSetup) throw new Error(data.message || 'Vercel setup required');
-      if (data?.error) throw new Error(data.message || data.error);
+      let url = '';
+      let vercelDeploymentId: string | null = null;
+      try {
+        const { data, error } = await supabase.functions.invoke('deploy-vercel', {
+          body: { projectId, projectName, files: projectFiles }
+        });
+        if (error) throw error;
+        if (data?.needsSetup) throw new Error(data.message || 'Vercel setup required');
+        if (data?.error) throw new Error(data.message || data.error);
+        url = data?.url || '';
+        vercelDeploymentId = data?.deploymentId ?? null;
+        if (url) addLog('⚡ Build started on Vercel...');
+      } catch (vercelError) {
+        addLog(`ℹ️ Vercel unavailable (${vercelError instanceof Error ? vercelError.message : 'setup missing'})`);
+        addLog('⚡ Switching to BulbAI Hosting — no build step needed...');
+      }
 
-      const url = data?.url || `https://${projectName.toLowerCase().replace(/\s+/g, '-')}.vercel.app`;
+      if (!url) {
+        const { data: hosted, error: hostedError } = await supabase.functions.invoke('deploy-bulbai', {
+          body: { projectId, projectName, files: projectFiles }
+        });
+        if (hostedError) throw hostedError;
+        if (hosted?.error) throw new Error(hosted.message || hosted.error);
+        url = hosted.url;
+        (hosted.logs || []).forEach?.((l: string) => addLog(l));
+      }
+
       setDeployUrl(url);
       setProgress(55);
-      addLog('⚡ Build started on Vercel...');
       addLog(`🔗 Live URL reserved: ${url}`);
 
-      // Stage 3: Deploying — poll real Vercel build state
+      // Stage 3: Deploying — poll real Vercel build state when applicable
       setStage(2);
-      let ready = false;
-      if (data?.deploymentId) {
+      let ready = !vercelDeploymentId;
+      if (vercelDeploymentId) {
         for (let i = 0; i < 40; i++) {
           await tick(1500);
           const { data: st } = await supabase.functions.invoke('deploy-vercel', {
-            body: { action: 'status', deploymentId: data.deploymentId }
+            body: { action: 'status', deploymentId: vercelDeploymentId }
           });
           const state = st?.readyState;
           if (state === 'READY') { ready = true; addLog('✅ Build succeeded'); break; }
@@ -119,11 +136,11 @@ export function DeploymentOverlay({ isOpen, onClose, projectId, projectName, fil
           addLog(`🔧 ${state || 'BUILDING'}...`);
         }
       } else {
-        await tick(2500);
-        ready = true;
+        await tick(800);
       }
 
       if (!ready) addLog('⏳ Still finishing on Vercel — the URL will go live shortly.');
+
 
       setProgress(95);
       addLog('🔒 SSL certificate configured');
