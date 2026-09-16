@@ -836,6 +836,25 @@ document.addEventListener('DOMContentLoaded', () => {
     finally { setSaving(false); }
   };
 
+  // Auto-publish: every save pushes the latest files to the live BulbAI site
+  useEffect(() => {
+    if (!project?.id) return;
+    if (!files.some(f => f.file_path.toLowerCase() === 'index.html')) return;
+    const timer = setTimeout(async () => {
+      const payload: Record<string, string> = {};
+      files.forEach(f => { if (f.file_content) payload[f.file_path] = f.file_content; });
+      const { data, error } = await supabase.functions.invoke('deploy-bulbai', {
+        body: { projectId: project.id, projectName: project.title, files: payload },
+      });
+      if (!error && data?.url) {
+        setProject((prev: any) => (prev ? { ...prev, preview_url: data.url, site_slug: data.slug } : prev));
+      }
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [files, project?.id]);
+
+
+
   const addTag = () => { if (newTag.trim() && !projectTags.includes(newTag.trim())) { setProjectTags([...projectTags, newTag.trim()]); setNewTag(''); } };
   const removeTag = (t: string) => setProjectTags(projectTags.filter(tag => tag !== t));
 
