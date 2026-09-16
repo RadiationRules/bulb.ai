@@ -1454,9 +1454,13 @@ document.addEventListener('DOMContentLoaded', () => {
                   <TabsTrigger value="terminal" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                     <TerminalIcon className="w-3.5 h-3.5 mr-1.5" />Terminal
                   </TabsTrigger>
+                  <TabsTrigger value="github" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
+                    <Github className="w-3.5 h-3.5 mr-1.5" />GitHub
+                  </TabsTrigger>
                   <TabsTrigger value="history" className="rounded-lg px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all">
                     <Clock className="w-3.5 h-3.5 mr-1.5" />History
                   </TabsTrigger>
+
                 </TabsList>
               </Tabs>
             </div>
@@ -1494,9 +1498,15 @@ document.addEventListener('DOMContentLoaded', () => {
                   projectName={project?.title}
                 />
               )}
+              {rightPanelTab === 'github' && project && (
+                <div className="h-full overflow-auto p-4">
+                  <GitHubActionsCard projectId={project.id} projectName={project.title} files={files} />
+                </div>
+              )}
               {rightPanelTab === 'history' && project && user && (
                 <HistoryPanel projectId={project.id} userId={user.id} onRestore={handleRestoreSnapshot} />
               )}
+
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
