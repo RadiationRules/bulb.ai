@@ -59,7 +59,7 @@ serve(async (req) => {
 
     const { data: project } = await supabase
       .from('projects')
-      .select('id, name')
+      .select('id')
       .eq('site_slug', slug)
       .maybeSingle();
 

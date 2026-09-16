@@ -49,7 +49,7 @@ serve(async (req) => {
 
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('id, user_id, site_slug')
+      .select('id, owner_id, site_slug')
       .eq('id', projectId)
       .maybeSingle();
 
@@ -64,7 +64,7 @@ serve(async (req) => {
       .maybeSingle();
 
     const ownerIds = [user.id, profile?.id].filter(Boolean);
-    if (!ownerIds.includes(project.user_id)) {
+    if (!ownerIds.includes(project.owner_id)) {
       return json({ error: 'You do not have permission to deploy this project' }, 403);
     }
 
