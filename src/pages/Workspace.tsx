@@ -1498,9 +1498,15 @@ document.addEventListener('DOMContentLoaded', () => {
                   projectName={project?.title}
                 />
               )}
+              {rightPanelTab === 'github' && project && (
+                <div className="h-full overflow-auto p-4">
+                  <GitHubActionsCard projectId={project.id} projectName={project.title} files={files} />
+                </div>
+              )}
               {rightPanelTab === 'history' && project && user && (
                 <HistoryPanel projectId={project.id} userId={user.id} onRestore={handleRestoreSnapshot} />
               )}
+
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
