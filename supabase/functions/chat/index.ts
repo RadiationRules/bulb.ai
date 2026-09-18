@@ -25,9 +25,9 @@ serve(async (req) => {
     }
 
     // ---- Smart model routing ----
-    const FAST_MODEL = 'google/gemini-2.5-flash';
-    const HEAVY_MODEL = 'google/gemini-2.5-pro';
-    const FREE_MODEL = 'google/gemini-2.5-flash-lite';
+    const FAST_MODEL = 'google/gemini-3.8-flash';
+    const HEAVY_MODEL = 'google/gemini-3.1-pro-preview';
+    const FREE_MODEL = 'google/gemini-3.1-flash-lite';
 
     const lastUserMessage: string = [...(messages ?? [])].reverse()
       .find((m: any) => m.role === 'user')?.content ?? '';

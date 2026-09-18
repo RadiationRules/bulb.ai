@@ -16,6 +16,7 @@ import Workspace from "./pages/Workspace";
 import Project from "./pages/Project";
 import Collaborate from "./pages/Collaborate";
 import Chat from "./pages/Chat";
+import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const AnimatedRoutes = () => {
 
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/project/:projectId" element={<Project />} />
         <Route path="/project/:projectId/collaborate" element={<Collaborate />} />
         <Route path="/workspace/:projectId" element={<Workspace />} />
