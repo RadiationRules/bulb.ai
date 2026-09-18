@@ -16,6 +16,7 @@ import Workspace from "./pages/Workspace";
 import Project from "./pages/Project";
 import Collaborate from "./pages/Collaborate";
 import Chat from "./pages/Chat";
+import Search from "./pages/Search";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
