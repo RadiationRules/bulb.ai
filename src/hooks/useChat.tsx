@@ -78,11 +78,22 @@ const finishStream = (key: string) => {
   }, 2000);
 };
 
+const isHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 const typeNextFrame = (key: string) => {
   const session = getSession(key);
   if (session.visibleContent.length < session.targetContent.length) {
+    // Background tabs throttle timers to ~1/s, which made typing appear frozen.
+    // While hidden, jump straight to the latest text so nothing is ever lost.
+    if (isHidden()) {
+      session.visibleContent = session.targetContent;
+      updateAssistantMessage(key, session.visibleContent);
+      session.typingTimer = null;
+      if (session.streamFinished) finishStream(key);
+      return;
+    }
     const backlog = session.targetContent.length - session.visibleContent.length;
-    const step = Math.max(1, Math.min(10, Math.ceil(backlog / 45)));
+    const step = Math.max(1, Math.min(120, Math.ceil(backlog / 20)));
     session.visibleContent = session.targetContent.slice(0, session.visibleContent.length + step);
     updateAssistantMessage(key, session.visibleContent);
     session.typingTimer = setTimeout(() => typeNextFrame(key), 16);
@@ -97,6 +108,21 @@ const queueAssistantContent = (key: string, content: string) => {
   session.targetContent = content;
   if (!session.typingTimer) session.typingTimer = setTimeout(() => typeNextFrame(key), 16);
 };
+
+// Keep every in-flight session in sync across tab switches: flush buffered text
+// when the tab is hidden and resume smooth typing as soon as it is visible again.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    sessions.forEach((session, key) => {
+      if (session.visibleContent.length === session.targetContent.length) {
+        if (session.streamFinished && session.isLoading && !session.typingTimer) finishStream(key);
+        return;
+      }
+      if (session.typingTimer) clearTimeout(session.typingTimer);
+      session.typingTimer = setTimeout(() => typeNextFrame(key), 0);
+    });
+  });
+}
 
 const persistMessage = async (projectId: string | undefined, role: 'user' | 'assistant', content: string) => {
   if (!projectId || !UUID_RE.test(projectId)) return;
