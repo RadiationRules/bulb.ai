@@ -21,7 +21,8 @@ import {
   Save, Play, FolderOpen, File, Plus, Settings, Share2, Star, GitFork,
   MessageSquare, Minimize2, Maximize2, RotateCcw, Terminal as TerminalIcon,
   Bot, Send, Loader2, X, Code, Monitor, RefreshCw, Undo2, Redo2, Search,
-  Download, Upload, Users, UserPlus, GitBranch, Package, Rocket, Sparkles, FileText, Clock, Lightbulb
+  Download, Upload, Users, UserPlus, GitBranch, Package, Rocket, Sparkles, FileText, Clock, Lightbulb,
+  Github
 } from 'lucide-react';
 import { GitPanel } from '@/components/GitPanel';
 import { CollaborationPanel } from '@/components/CollaborationPanel';
