@@ -58,6 +58,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
 import { ShareDialog } from '@/components/ShareDialog';
+import { GitHubActionsCard } from '@/components/GitHubActionsCard';
 import { AiDiffReview, PendingChange } from '@/components/AiDiffReview';
 
 interface ProjectFile {
