@@ -116,7 +116,7 @@ export default function Chat() {
               <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-400 animate-pulse" />
             </div>
             <div>
-              <h1 className="text-base font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">Claude Mythos 5</h1>
+              <h1 className="text-base font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">Claude Sonnet 5</h1>
               <p className="text-[10px] text-muted-foreground leading-none">BulbAI coding companion</p>
             </div>
           </div>
