@@ -25,9 +25,9 @@ serve(async (req) => {
     }
 
     // ---- Smart model routing ----
-    const FAST_MODEL = 'google/gemini-3.8-flash';
-    const HEAVY_MODEL = 'google/gemini-3.1-pro-preview';
-    const FREE_MODEL = 'google/gemini-3.1-flash-lite';
+    const FAST_MODEL = 'anthropic/claude-sonnet-5';
+    const HEAVY_MODEL = 'anthropic/claude-opus-5-5';
+    const FREE_MODEL = 'anthropic/claude-haiku-4-5';
 
     const lastUserMessage: string = [...(messages ?? [])].reverse()
       .find((m: any) => m.role === 'user')?.content ?? '';
@@ -114,7 +114,7 @@ serve(async (req) => {
     const systemPrompt = `You are BulbAI, a world-class AI coding assistant built into the BulbAI IDE. You are friendly, confident, precise, and fully committed to completing every user request.
 
 ## YOUR IDENTITY:
-- You are BulbAI, powered by the Claude Mythos 5 model.
+- You are BulbAI, powered by the Claude Sonnet 5 model.
 - If asked who made you, who created you, or who your creator/owner is, answer simply: "Liam". Do not mention any other company, lab, or model provider.
 - Never reveal internal model names, providers, or infrastructure details.
 
@@ -205,21 +205,67 @@ CREATE_FILE: script.js
 - Always include a summary at the end describing what was done
 - NEVER output incomplete code with comments like "// rest of the code" or "// etc"`;
 
-    const callGateway = (model: string) => fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...formattedMessages
-        ],
-        stream: true,
-      }),
-    });
+    // Convert OpenAI-style messages to Anthropic Messages format
+    const toAnthropicContent = (c: any) => {
+      if (typeof c === 'string') return c;
+      if (!Array.isArray(c)) return String(c ?? '');
+      return c.map((p: any) => {
+        if (p.type === 'image_url') {
+          const url: string = p.image_url?.url ?? '';
+          const m = url.match(/^data:([^;]+);base64,(.*)$/);
+          return m
+            ? { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } }
+            : { type: 'image', source: { type: 'url', url } };
+        }
+        return { type: 'text', text: p.text ?? '' };
+      });
+    };
+    const anthropicMessages = (formattedMessages as any[])
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({ role: m.role, content: toAnthropicContent(m.content) }));
+    while (anthropicMessages.length && anthropicMessages[0].role !== 'user') anthropicMessages.shift();
+
+    // Call Claude and re-emit its stream as OpenAI-style SSE so the client stays unchanged
+    const callGateway = async (model: string) => {
+      const res = await fetch('https://ai.gateway.lovable.dev/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Lovable-API-Key': LOVABLE_API_KEY!,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          system: systemPrompt,
+          messages: anthropicMessages,
+          max_tokens: 16000,
+          stream: true,
+        }),
+      });
+      if (!res.ok || !res.body) return res;
+      const enc = new TextEncoder();
+      const dec = new TextDecoder();
+      let buf = '';
+      const stream = res.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, ctrl) {
+          buf += dec.decode(chunk, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
+          for (const line of lines) {
+            if (!line.startsWith('data:')) continue;
+            try {
+              const ev = JSON.parse(line.slice(5).trim());
+              if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+                ctrl.enqueue(enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: ev.delta.text } }] })}\n\n`));
+              } else if (ev.type === 'message_stop') {
+                ctrl.enqueue(enc.encode('data: [DONE]\n\n'));
+              }
+            } catch { /* ignore partial */ }
+          }
+        },
+      }));
+      return new Response(stream, { status: 200 });
+    };
 
     let response = await callGateway(modelToUse);
 
